@@ -1,0 +1,381 @@
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+
+const initialState = {
+  doctorName: "",
+  regNo: "",
+  gender: "",
+  birthday: "",
+  anniversary: "",
+  qualifications: {
+    MBBS: false,
+    MD: false,
+    MS: false,
+    FRCS: false,
+    Other: ""
+  },
+  department: "",
+  specialty: "",
+  searchParameters: "",
+  experience: "",
+  contact1: "",
+  contact2: "",
+  email: "",
+  clinicName: "",
+  address: "",
+  landmark: "",
+  state: "",
+  district: "",
+  city: "",
+  pin: "",
+  contactPersonName: "",
+  contactPersonNo: "",
+  consultationFee: "",
+  prescriptionValidity: "",
+  scheduleOffline: {
+    Mon: "",
+    Tue: "",
+    Wed: "",
+    Thu: "",
+    Fri: "",
+    Sat: "",
+    Sun: ""
+  },
+  scheduleOnline: {
+    regular: false,
+    pandemic: false,
+    times: { Mon: "", Tue: "", Wed: "", Thu: "", Fri: "", Sat: "", Sun: "" }
+  },
+  maxDaysBeforeBooking: "",
+  declaration: false
+};
+
+const NewOnboarding = () => {
+  const [form, setForm] = useState(initialState);
+  const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleQualChange = (e) => {
+    const { name, checked, value } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      qualifications: {
+        ...prev.qualifications,
+        [name]: name === "Other" ? value : checked
+      }
+    }));
+  };
+
+  const handleScheduleChange = (e, group, day) => {
+    const { value } = e.target;
+    if (group === "offline") {
+      setForm((prev) => ({
+        ...prev,
+        scheduleOffline: { ...prev.scheduleOffline, [day]: value }
+      }));
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        scheduleOnline: { ...prev.scheduleOnline, times: { ...prev.scheduleOnline.times, [day]: value } }
+      }));
+    }
+  };
+
+  const handleCheckbox = (e) => {
+    const { name, checked } = e.target;
+    setForm((prev) => ({ ...prev, [name]: checked }));
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    // Basic validation
+    if (!form.doctorName) {
+      alert("Please enter Doctor's name");
+      return;
+    }
+
+    try {
+      // Build payload to match backend field names and types
+      const qualificationsArr = Object.keys(form.qualifications).reduce((acc, k) => {
+        if (k === 'Other') {
+          if (form.qualifications.Other && form.qualifications.Other.trim()) acc.push(form.qualifications.Other.trim());
+        } else if (form.qualifications[k]) {
+          acc.push(k);
+        }
+        return acc;
+      }, []);
+
+      const schedule = {
+        offline: form.scheduleOffline,
+        online: form.scheduleOnline
+      };
+
+      const payload = {
+        name: form.doctorName,
+        doctor: form.specialty || null,
+        reg_no: form.regNo || null,
+        gender: form.gender || null,
+        dob: form.birthday || null,
+        qualifications: qualificationsArr,
+        department: form.department || null,
+        contact: form.contact1 || form.contact2 || null,
+        clinic_address: `${form.clinicName || ''}\n${form.address || ''}`.trim() || null,
+        schedule: schedule,
+        fee: form.consultationFee || null,
+        declaration: !!form.declaration
+      };
+
+      // Prefer using Vite proxy for local dev: send requests to '/api/onboarding' unless VITE_API_BASE is explicitly set.
+      const envBase = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) ? import.meta.env.VITE_API_BASE : '';
+      const backendUrl = envBase && envBase.trim() !== '' ? `${envBase.replace(/\/$/, '')}/api/onboarding` : '/api/onboarding';
+      const res = await fetch(backendUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      // Try to parse JSON; if it's HTML or text, include snippet and headers in the error for debugging
+      let parsed = null;
+      try {
+        parsed = await res.json();
+      } catch (parseErr) {
+        // attempt to read as text
+        let snippet = '<unreadable response>';
+        try {
+          const text = await res.clone().text();
+          snippet = text.slice(0, 1000);
+        } catch (tErr) {
+          // try reading as blob and show first bytes as hex
+          try {
+            const blob = await res.clone().blob();
+            const arrayBuffer = await blob.slice(0, 64).arrayBuffer();
+            const bytes = new Uint8Array(arrayBuffer);
+            snippet = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+          } catch (bErr) {
+            snippet = '<unreadable response (binary)>';
+          }
+        }
+
+        const ctype = res.headers.get('content-type') || '<no content-type>';
+        throw new Error(`Invalid JSON response (status ${res.status}). Content-Type: ${ctype}. Response starts with: ${snippet}`);
+      }
+
+      if (!res.ok) {
+        // If API returned validation errors, include them
+        const message = parsed?.message || (parsed?.errors ? JSON.stringify(parsed.errors) : JSON.stringify(parsed));
+        throw new Error(message || 'Failed to submit onboarding');
+      }
+
+      console.log('Response from API:', parsed);
+      alert('Onboarding submitted successfully.');
+      navigate('/onboarding');
+    } catch (err) {
+      console.error('Submit error:', err);
+      alert('Failed to submit onboarding: ' + err.message);
+    }
+  };
+
+  return (
+    <div className="page-wrapper">
+      <div className="content">
+        <div className="d-flex align-items-center justify-content-between mb-4">
+          <div>
+            <h3 className="mb-0">Doctor Onboarding</h3>
+            <p className="text-muted mb-0">Fill the doctor's details to onboard.</p>
+          </div>
+        </div>
+
+        <form onSubmit={submit} className="card">
+          <div className="card-body">
+            <div className="row g-3">
+              <div className="col-md-8">
+                <label className="form-label">Doctor's Name</label>
+                <input name="doctorName" value={form.doctorName} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-4">
+                <label className="form-label">Reg. No.</label>
+                <input name="regNo" value={form.regNo} onChange={handleChange} className="form-control" />
+              </div>
+
+              <div className="col-md-3">
+                <label className="form-label">Birthday</label>
+                <input type="date" name="birthday" value={form.birthday} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label">Anniversary</label>
+                <input type="date" name="anniversary" value={form.anniversary} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label">Gender</label>
+                <select name="gender" value={form.gender} onChange={handleChange} className="form-select">
+                  <option value="">Select</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">Qualification</label>
+                <div className="d-flex gap-3 align-items-center">
+                  <div className="form-check">
+                    <input className="form-check-input" type="checkbox" id="MBBS" name="MBBS" checked={form.qualifications.MBBS} onChange={handleQualChange} />
+                    <label className="form-check-label" htmlFor="MBBS">MBBS</label>
+                  </div>
+                  <div className="form-check">
+                    <input className="form-check-input" type="checkbox" id="MD" name="MD" checked={form.qualifications.MD} onChange={handleQualChange} />
+                    <label className="form-check-label" htmlFor="MD">MD</label>
+                  </div>
+                  <div className="form-check">
+                    <input className="form-check-input" type="checkbox" id="MS" name="MS" checked={form.qualifications.MS} onChange={handleQualChange} />
+                    <label className="form-check-label" htmlFor="MS">MS</label>
+                  </div>
+                  <div className="form-check">
+                    <input className="form-check-input" type="checkbox" id="FRCS" name="FRCS" checked={form.qualifications.FRCS} onChange={handleQualChange} />
+                    <label className="form-check-label" htmlFor="FRCS">FRCS</label>
+                  </div>
+                  <div className="ms-2">
+                    <input name="Other" value={form.qualifications.Other} onChange={handleQualChange} placeholder="Other" className="form-control" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-md-6">
+                <label className="form-label">Department</label>
+                <input name="department" value={form.department} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Specialty</label>
+                <input name="specialty" value={form.specialty} onChange={handleChange} className="form-control" />
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">Search Parameters / Diseases</label>
+                <input name="searchParameters" value={form.searchParameters} onChange={handleChange} className="form-control" />
+              </div>
+
+              <div className="col-md-6">
+                <label className="form-label">Experience</label>
+                <input name="experience" value={form.experience} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label">Contact No. 1</label>
+                <input name="contact1" value={form.contact1} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label">Contact No. 2</label>
+                <input name="contact2" value={form.contact2} onChange={handleChange} className="form-control" />
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">E-mail Id</label>
+                <input name="email" value={form.email} onChange={handleChange} className="form-control" />
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">Clinic Name & Address</label>
+                <input name="clinicName" value={form.clinicName} onChange={handleChange} className="form-control mb-2" placeholder="Clinic name" />
+                <textarea name="address" value={form.address} onChange={handleChange} className="form-control" placeholder="Address" rows={2} />
+              </div>
+
+              <div className="col-md-6">
+                <label className="form-label">Landmark</label>
+                <input name="landmark" value={form.landmark} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-2">
+                <label className="form-label">State</label>
+                <input name="state" value={form.state} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-2">
+                <label className="form-label">District</label>
+                <input name="district" value={form.district} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-1">
+                <label className="form-label">City</label>
+                <input name="city" value={form.city} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-1">
+                <label className="form-label">PIN</label>
+                <input name="pin" value={form.pin} onChange={handleChange} className="form-control" />
+              </div>
+
+              <div className="col-md-6">
+                <label className="form-label">Contact Person Name</label>
+                <input name="contactPersonName" value={form.contactPersonName} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Contact Person No.</label>
+                <input name="contactPersonNo" value={form.contactPersonNo} onChange={handleChange} className="form-control" />
+              </div>
+
+              <div className="col-md-4">
+                <label className="form-label">Consultation Fee</label>
+                <input name="consultationFee" value={form.consultationFee} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-md-4">
+                <label className="form-label">Prescription Validity (Days)</label>
+                <input name="prescriptionValidity" value={form.prescriptionValidity} onChange={handleChange} className="form-control" />
+              </div>
+              <div className="col-12">
+                <label className="form-label">Consultancy Schedule Offline (time or notes)</label>
+                <div className="row g-2">
+                  {Object.keys(form.scheduleOffline).map((day) => (
+                    <div className="col-md-3" key={day}>
+                      <label className="form-label">{day}</label>
+                      <input value={form.scheduleOffline[day]} onChange={(e) => handleScheduleChange(e, 'offline', day)} className="form-control" placeholder="e.g. 10:00-13:00" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">Consultancy Online</label>
+                <div className="d-flex gap-3 align-items-center mb-2">
+                  <div className="form-check">
+                    <input className="form-check-input" type="checkbox" id="regular" checked={form.scheduleOnline.regular} onChange={(e) => setForm(p => ({...p, scheduleOnline: {...p.scheduleOnline, regular: e.target.checked}}))} />
+                    <label className="form-check-label" htmlFor="regular">Regular</label>
+                  </div>
+                  <div className="form-check">
+                    <input className="form-check-input" type="checkbox" id="pandemic" checked={form.scheduleOnline.pandemic} onChange={(e) => setForm(p => ({...p, scheduleOnline: {...p.scheduleOnline, pandemic: e.target.checked}}))} />
+                    <label className="form-check-label" htmlFor="pandemic">Pandemic</label>
+                  </div>
+                </div>
+                <div className="row g-2">
+                  {Object.keys(form.scheduleOnline.times).map((day) => (
+                    <div className="col-md-3" key={day}>
+                      <label className="form-label">{day}</label>
+                      <input value={form.scheduleOnline.times[day]} onChange={(e) => handleScheduleChange(e, 'online', day)} className="form-control" placeholder="e.g. 18:00-20:00" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="col-md-4">
+                <label className="form-label">Max days before booking</label>
+                <input name="maxDaysBeforeBooking" value={form.maxDaysBeforeBooking} onChange={handleChange} className="form-control" />
+              </div>
+
+              <div className="col-12">
+                <div className="form-check">
+                  <input className="form-check-input" type="checkbox" id="declaration" checked={form.declaration} onChange={(e) => setForm(p => ({...p, declaration: e.target.checked}))} />
+                  <label className="form-check-label" htmlFor="declaration">I hereby declare that above details are true to the best of my knowledge and belief.</label>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          <div className="card-footer text-end">
+            <button type="submit" className="btn btn-primary">Submit Onboarding</button>
+            <Link to="/onboarding" className="btn btn-outline-secondary ms-2">Cancel</Link>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default NewOnboarding;
