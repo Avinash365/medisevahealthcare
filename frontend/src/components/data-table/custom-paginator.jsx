@@ -2,15 +2,6 @@ import { Paginator } from "primereact/paginator";
 import React from "react";
 
 
-
-
-
-
-
-
-
-
-
 const CustomPaginator = ({
   currentPage,
   totalPages,

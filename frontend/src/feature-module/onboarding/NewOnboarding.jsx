@@ -129,9 +129,10 @@ const NewOnboarding = () => {
         declaration: !!form.declaration
       };
 
-      // Prefer using Vite proxy for local dev: send requests to '/api/onboarding' unless VITE_API_BASE is explicitly set.
-      const envBase = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) ? import.meta.env.VITE_API_BASE : '';
-      const backendUrl = envBase && envBase.trim() !== '' ? `${envBase.replace(/\/$/, '')}/api/onboarding` : '/api/onboarding';
+    // Get API base from env
+      const APP_API_BASE = import.meta.env.VITE_APP_API_BASE; 
+      const backendUrl = `${APP_API_BASE}/api/onboarding`;
+      
       const res = await fetch(backendUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
