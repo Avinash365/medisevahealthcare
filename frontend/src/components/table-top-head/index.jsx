@@ -5,7 +5,7 @@ import { useSelector } from "react-redux";
 import { useDispatch } from "react-redux";
 import { setToggleHeader } from "../../core/redux/sidebarSlice";
 
-const TableTopHead = () => {
+const TableTopHead = ({ onPdf, onExcel, onRefresh }) => {
   const dispatch = useDispatch();
   const { toggleHeader } = useSelector((state) => state.sidebar);
   const handleToggleHeader = () => {
@@ -16,48 +16,45 @@ const TableTopHead = () => {
       <Tooltip target=".pr-tooltip" />
       <ul className="table-top-head">
         <li>
-          <Link
-            to="#"
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); if (onPdf) onPdf(); }}
             className="pr-tooltip"
             data-pr-tooltip="Pdf"
             data-pr-position="top">
-            
             <img src={pdf} alt="img" />
-          </Link>
+          </a>
         </li>
         <li>
-          <Link
-            to="#"
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); if (onExcel) onExcel(); }}
             className="pr-tooltip"
             data-pr-tooltip="Excel"
             data-pr-position="top">
-            
             <img src={excel} alt="img" />
-          </Link>
+          </a>
         </li>
         <li>
-          <Link
-            to="#"
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); if (onRefresh) onRefresh(); }}
             className="pr-tooltip"
             data-pr-tooltip="Refresh"
             data-pr-position="top">
-            
             <i className="ti ti-refresh" />
-          </Link>
+          </a>
         </li>
         <li>
-          <Link
-            to="#"
+          <a
+            href="#"
             className="pr-tooltip"
             data-pr-tooltip="Collapse"
             data-pr-position="top"
             id="collapse-header"
-            onClick={handleToggleHeader}>
-            
-            <i
-              className={`ti  ${toggleHeader ? "ti-chevron-down" : "ti-chevron-up"}`} />
-            
-          </Link>
+            onClick={(e) => { e.preventDefault(); handleToggleHeader(); }}>
+            <i className={`ti  ${toggleHeader ? "ti-chevron-down" : "ti-chevron-up"}`} />
+          </a>
         </li>
       </ul>
     </>);
