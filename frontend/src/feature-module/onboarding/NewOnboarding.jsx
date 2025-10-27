@@ -173,7 +173,6 @@ const NewOnboarding = () => {
 
       console.log('Response from API:', parsed);
       alert('Onboarding submitted successfully.');
-      navigate('/onboarding');
     } catch (err) {
       console.error('Submit error:', err);
       alert('Failed to submit onboarding: ' + err.message);
