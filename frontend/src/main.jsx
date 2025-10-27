@@ -5,7 +5,7 @@ import { PrimeReactProvider } from "primereact/api";
 import store from "./core/redux/store";
 import AppRouter from "./app.router";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
-import "./assets/icons/tabler-icons/tabler-icons.min.css";
+import "./assets/icons/tabler-icons/tabler-icons.css";
 import "primereact/resources/themes/saga-blue/theme.css";
 import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";

@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Toast } from 'react-bootstrap';
 
 const initialState = {
   doctorName: "",
@@ -52,7 +53,82 @@ const initialState = {
 
 const NewOnboarding = () => {
   const [form, setForm] = useState(initialState);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVariant, setToastVariant] = useState('success');
   const navigate = useNavigate();
+  const location = useLocation();
+  const [editId, setEditId] = useState(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('editId');
+    if (id) {
+      setEditId(id);
+      // fetch record
+      (async () => {
+        try {
+          const res = await fetch(`/api/onboarding/${id}`);
+          if (!res.ok) throw new Error('Failed to load');
+          const json = await res.json();
+          const item = json?.data || json;
+          if (!item) return;
+          // map backend model to form
+          const quals = (() => {
+            if (!item.qualifications) return initialState.qualifications;
+            let q = item.qualifications;
+            if (typeof q === 'string') {
+              try { q = JSON.parse(q); } catch (e) { q = q.split(',').map(s=>s.trim()).filter(Boolean); }
+            }
+            const qualObj = { ...initialState.qualifications };
+            if (Array.isArray(q)) {
+              q.forEach((qq) => {
+                if (qualObj.hasOwnProperty(qq)) qualObj[qq] = true;
+                else qualObj.Other = qq;
+              });
+            }
+            return qualObj;
+          })();
+
+          const clinicParts = (item.clinic_address || '').split('\n');
+          const clinicName = clinicParts[0] || '';
+          const address = clinicParts.slice(1).join('\n') || '';
+
+          const schedule = (() => {
+            if (!item.schedule) return { offline: initialState.scheduleOffline, online: initialState.scheduleOnline };
+            let s = item.schedule;
+            if (typeof s === 'string') {
+              try { s = JSON.parse(s); } catch (e) { s = {}; }
+            }
+            return {
+              offline: s.offline || initialState.scheduleOffline,
+              online: s.online || initialState.scheduleOnline
+            };
+          })();
+
+          setForm((prev) => ({
+            ...prev,
+            doctorName: item.name || '',
+            regNo: item.reg_no || '',
+            gender: item.gender || '',
+            birthday: item.dob ? item.dob.split(' ')[0] : '',
+            qualifications: quals,
+            department: item.department || '',
+            specialty: item.doctor || '',
+            contact1: item.contact || '',
+            clinicName: clinicName,
+            address: address,
+            scheduleOffline: schedule.offline,
+            scheduleOnline: schedule.online,
+            consultationFee: item.fee || '' ,
+            declaration: !!item.declaration
+          }));
+        } catch (err) {
+          console.error('Load onboarding for edit failed', err);
+        }
+      })();
+    }
+  }, [location.search]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -94,7 +170,9 @@ const NewOnboarding = () => {
     e.preventDefault();
     // Basic validation
     if (!form.doctorName) {
-      alert("Please enter Doctor's name");
+      setToastVariant('danger');
+      setToastMessage("Please enter Doctor's name");
+      setShowToast(true);
       return;
     }
 
@@ -129,12 +207,13 @@ const NewOnboarding = () => {
         declaration: !!form.declaration
       };
 
-    // Get API base from env
-      const APP_API_BASE = import.meta.env.VITE_APP_API_BASE; 
-      const backendUrl = `${APP_API_BASE}/api/onboarding`;
-      
-      const res = await fetch(backendUrl, {
-        method: 'POST',
+      // Prefer using Vite proxy for local dev: send requests to '/api/onboarding' unless VITE_API_BASE is explicitly set.
+      const envBase = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) ? import.meta.env.VITE_API_BASE : '';
+      const backendUrl = envBase && envBase.trim() !== '' ? `${envBase.replace(/\/$/, '')}/api/onboarding` : '/api/onboarding';
+      const method = editId ? 'PUT' : 'POST';
+      const url = editId ? `${backendUrl.replace(/\/$/, '')}/${editId}` : backendUrl;
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
@@ -172,16 +251,31 @@ const NewOnboarding = () => {
       }
 
       console.log('Response from API:', parsed);
-      alert('Onboarding submitted successfully.');
+      setToastVariant('success');
+      setToastMessage(editId ? 'Onboarding updated successfully.' : 'Onboarding submitted successfully.');
+      setShowToast(true);
+      // Give the user a moment to see the toast, then navigate back to list
+      setTimeout(() => navigate('/onboarding'), 1200);
     } catch (err) {
       console.error('Submit error:', err);
-      alert('Failed to submit onboarding: ' + err.message);
+      setToastVariant('danger');
+      setToastMessage('Failed to submit onboarding: ' + err.message);
+      setShowToast(true);
     }
   };
 
   return (
     <div className="page-wrapper">
       <div className="content">
+        {/* Toast notification (top-right) */}
+        <div aria-live="polite" aria-atomic="true" className="position-fixed" style={{ top: 20, right: 20, zIndex: 1060 }}>
+          <Toast onClose={() => setShowToast(false)} show={showToast} bg={toastVariant} delay={3500} autohide>
+            <Toast.Header>
+              <strong className="me-auto">Notification</strong>
+            </Toast.Header>
+            <Toast.Body className={toastVariant === 'success' ? 'text-white' : ''}>{toastMessage}</Toast.Body>
+          </Toast>
+        </div>
         <div className="d-flex align-items-center justify-content-between mb-4">
           <div>
             <h3 className="mb-0">Doctor Onboarding</h3>

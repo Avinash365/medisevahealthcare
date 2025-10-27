@@ -402,6 +402,9 @@ const IncomeList = lazy(
 
 // Onboarding
 const NewOnboarding = lazy(() => import("../feature-module/onboarding/NewOnboarding"));
+const ShowOnboarding = lazy(() => import("../feature-module/onboarding/ShowOnboarding"));
+const BookAppointment = lazy(() => import("../feature-module/appointments/BookAppointment"));
+const ShowAppointments = lazy(() => import("../feature-module/appointments/ShowAppointments"));
 const IncomeCategory = lazy(
   () => import("../feature-module/finance-accounts/income/incomeCategory")
 );
@@ -616,6 +619,30 @@ export const authRoutes = [
   path: routes.onboardingNew,
   name: "new-onboarding",
   element: <NewOnboarding />,
+  route: Route
+},
+
+{
+  id: 1000,
+  path: routes.onboarding,
+  name: "show-onboarding",
+  element: <ShowOnboarding />,
+  route: Route
+},
+
+{
+  id: 1001,
+  path: routes.appointmentsBook,
+  name: "book-appointment",
+  element: <BookAppointment />,
+  route: Route
+},
+
+{
+  id: 1002,
+  path: routes.appointments,
+  name: "show-appointments",
+  element: <ShowAppointments />,
   route: Route
 },
 
