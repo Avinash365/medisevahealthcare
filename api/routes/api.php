@@ -6,6 +6,8 @@ use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\AppointmentController;
 
 
+
+// login 
 Route::get('/onboarding', [OnboardingController::class, 'index']);
 Route::get('/onboarding/{id}', [OnboardingController::class, 'show']);
 Route::post('/onboarding', [OnboardingController::class, 'store']);
