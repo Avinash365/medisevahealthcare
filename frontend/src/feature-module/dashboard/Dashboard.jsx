@@ -2,6 +2,8 @@ import { useState } from "react";
 import CountUp from "react-countup";
 import Chart from "react-apexcharts";
 import { Link } from "react-router-dom";
+import { getUser } from "../../utils/auth";
+import { useEffect } from "react";
 import { all_routes } from "../../routes/all_routes";
 import {
   dash1,
@@ -21,6 +23,16 @@ import {
 
 const Dashboard = () => {
   const route = all_routes;
+  const [userName, setUserName] = useState('');
+
+  useEffect(() => {
+    try {
+      const u = getUser();
+      if (u && (u.name || u.email)) setUserName(u.name || u.email);
+    } catch (e) {
+      // ignore
+    }
+  }, []);
   const [chartOptions] = useState({
     series: [
     {
@@ -92,6 +104,13 @@ const Dashboard = () => {
     <div>
       <div className="page-wrapper">
         <div className="content">
+          <div className="page-header d-flex align-items-center justify-content-between mb-4">
+            <div>
+              <h3 className="mb-0">Welcome{userName ? `, ${userName}` : ''}</h3>
+              <p className="text-muted mb-0">Quick overview of recent activity and stats.</p>
+            </div>
+          </div>
+
           <div className="row">
             <div className="col-xl-3 col-sm-6 col-12 d-flex">
               <div className="card dash-widget w-100">

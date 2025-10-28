@@ -24,6 +24,9 @@ const initialState = {
   email: "",
   clinicName: "",
   address: "",
+  clinics: [
+    { clinicName: '', address: '', landmark: '', state: '', district: '', city: '', pin: '' }
+  ],
   landmark: "",
   state: "",
   district: "",
@@ -94,6 +97,30 @@ const NewOnboarding = () => {
           const clinicName = clinicParts[0] || '';
           const address = clinicParts.slice(1).join('\n') || '';
 
+          // Load clinics: prefer explicit clinics array from backend, else fallback to clinic_address
+          const parsedFallback = parseClinicAddress(address || '');
+          let clinicsArr = [{ clinicName: clinicName, address: address, city: parsedFallback.city, state: parsedFallback.state, district: parsedFallback.district, pin: parsedFallback.pin, landmark: parsedFallback.landmark, parts: parsedFallback.parts || [] }];
+          if (item.clinics) {
+            let c = item.clinics;
+            if (typeof c === 'string') {
+              try { c = JSON.parse(c); } catch (e) { c = null; }
+            }
+            if (Array.isArray(c) && c.length) clinicsArr = c.map(x => {
+              const addr = x.address || '';
+              const p = parseClinicAddress(addr || '');
+              return {
+                clinicName: x.clinicName || x.name || '',
+                address: addr,
+                city: x.city || p.city,
+                state: x.state || p.state,
+                district: x.district || p.district,
+                pin: x.pin || p.pin,
+                landmark: x.landmark || p.landmark,
+                parts: p.parts || []
+              };
+            });
+          }
+
           const schedule = (() => {
             if (!item.schedule) return { offline: initialState.scheduleOffline, online: initialState.scheduleOnline };
             let s = item.schedule;
@@ -118,6 +145,7 @@ const NewOnboarding = () => {
             contact1: item.contact || '',
             clinicName: clinicName,
             address: address,
+            clinics: clinicsArr,
             scheduleOffline: schedule.offline,
             scheduleOnline: schedule.online,
             consultationFee: item.fee || '' ,
@@ -144,6 +172,86 @@ const NewOnboarding = () => {
         [name]: name === "Other" ? value : checked
       }
     }));
+  };
+
+  const stripPostal = (s) => {
+    if (!s) return '';
+    return String(s).replace(/\b\d{4,6}\b/g, '').replace(/\bIndia\b/i, '').trim();
+  };
+
+  const normalize = (t) => t ? String(t).trim() : '';
+
+  const isLikelyState = (t) => {
+    if (!t) return false;
+    const s = String(t).trim();
+    if (/\d/.test(s)) return false;
+    if (/\b(street|road|rd|lane|ln|building|bldg|plot)\b/i.test(s)) return false;
+    return s.length > 1 && s.length < 40;
+  };
+
+  const parseClinicAddress = (addr) => {
+    const result = { city: null, state: null, district: null, pin: null, landmark: null, parts: [] };
+    if (!addr) return result;
+    const raw = String(addr);
+    const parts = raw.split('\n').map(s => s.trim()).filter(Boolean);
+    result.parts = parts;
+    const pinMatch = raw.match(/\b(\d{6})\b/);
+    if (pinMatch) result.pin = pinMatch[1];
+    const lastLine = parts.length ? parts[parts.length - 1] : '';
+    const lastClean = stripPostal(lastLine || raw);
+    const commaParts = lastClean.split(',').map(s => s.trim()).filter(Boolean);
+    if (commaParts.length >= 2) {
+      result.state = normalize(commaParts[commaParts.length - 1]) || null;
+      result.city = normalize(commaParts[commaParts.length - 2]) || null;
+      if (commaParts.length >= 3) result.district = normalize(commaParts[commaParts.length - 3]) || null;
+    } else {
+      const dashParts = lastClean.split(/[-–—]/).map(s => s.trim()).filter(Boolean);
+      if (dashParts.length >= 2) {
+        result.city = normalize(dashParts[0]) || null;
+        result.state = normalize(dashParts[1]) || null;
+      } else {
+        const tokens = lastClean.split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+        if (tokens.length >= 2) {
+          const lastTok = tokens[tokens.length - 1];
+          const secondLast = tokens[tokens.length - 2];
+          if (isLikelyState(lastTok)) {
+            result.state = lastTok;
+            result.city = secondLast || null;
+            if (tokens.length >= 3) result.district = tokens[tokens.length - 3];
+          } else {
+            result.city = lastClean || null;
+          }
+        } else if (lastClean) {
+          result.city = lastClean;
+        }
+      }
+    }
+    const landmarkRegex = /(?:near|opp(?:osite)?|opposite|behind|beside|landmark|landmark:?)\s*[:\-–—\s]*([^,\n]+)/i;
+    for (let i = 0; i < parts.length; i++) {
+      const m = parts[i].match(landmarkRegex);
+      if (m && m[1]) { result.landmark = m[1].trim(); break; }
+    }
+    if (!result.landmark && parts.length >= 2) {
+      const p0 = parts[1];
+      if (p0 && /\b(near|opp|opposite|behind|beside)\b/i.test(p0)) result.landmark = p0;
+    }
+    return result;
+  };
+
+  const handleClinicChange = (index, field, value) => {
+    setForm(prev => {
+      const clinics = Array.isArray(prev.clinics) ? [...prev.clinics] : [];
+      clinics[index] = { ...clinics[index], [field]: value };
+      return { ...prev, clinics };
+    });
+  };
+
+  const addClinic = () => {
+    setForm(prev => ({ ...prev, clinics: [...(prev.clinics || []), { clinicName: '', address: '', landmark: '', state: '', district: '', city: '', pin: '' }] }));
+  };
+
+  const removeClinic = (index) => {
+    setForm(prev => ({ ...prev, clinics: (prev.clinics || []).filter((_, i) => i !== index) }));
   };
 
   const handleScheduleChange = (e, group, day) => {
@@ -192,6 +300,21 @@ const NewOnboarding = () => {
         online: form.scheduleOnline
       };
 
+      // attach parsed fields to clinics before sending
+      const clinicsPayload = (form.clinics || []).map((c) => {
+        const addr = c.address || '';
+        const p = parseClinicAddress(addr || '');
+        return {
+          clinicName: c.clinicName || '',
+          address: addr,
+          city: c.city || p.city,
+          state: c.state || p.state,
+          district: c.district || p.district,
+          pin: c.pin || p.pin,
+          landmark: c.landmark || p.landmark
+        };
+      });
+
       const payload = {
         name: form.doctorName,
         doctor: form.specialty || null,
@@ -201,7 +324,9 @@ const NewOnboarding = () => {
         qualifications: qualificationsArr,
         department: form.department || null,
         contact: form.contact1 || form.contact2 || null,
-        clinic_address: `${form.clinicName || ''}\n${form.address || ''}`.trim() || null,
+        // keep backward-compatible clinic_address (first clinic) and also send structured clinics array
+        clinic_address: `${(form.clinics && form.clinics[0] && (form.clinics[0].clinicName || '') ? form.clinics[0].clinicName : form.clinicName) || ''}\n${(form.clinics && form.clinics[0] && form.clinics[0].address ? form.clinics[0].address : form.address) || ''}`.trim() || null,
+  clinics: clinicsPayload.length ? clinicsPayload : null,
         schedule: schedule,
         fee: form.consultationFee || null,
         declaration: !!form.declaration
@@ -371,31 +496,66 @@ const NewOnboarding = () => {
               </div>
 
               <div className="col-12">
-                <label className="form-label">Clinic Name & Address</label>
-                <input name="clinicName" value={form.clinicName} onChange={handleChange} className="form-control mb-2" placeholder="Clinic name" />
-                <textarea name="address" value={form.address} onChange={handleChange} className="form-control" placeholder="Address" rows={2} />
-              </div>
+                <label className="form-label">Clinic(s) Name & Address</label>
+                <div className="mb-2">
+                  {(form.clinics || []).map((c, idx) => (
+                    <div key={idx} className="card mb-2 p-3 bg-light border">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                          <h6 className="mb-0">Clinic {idx + 1}</h6>
+                          <small className="text-muted">{c.clinicName || ''}</small>
+                        </div>
+                        <div>
+                          { (form.clinics || []).length > 1 && (
+                            <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => removeClinic(idx)}>Remove</button>
+                          ) }
+                        </div>
+                      </div>
 
-              <div className="col-md-6">
-                <label className="form-label">Landmark</label>
-                <input name="landmark" value={form.landmark} onChange={handleChange} className="form-control" />
+                      <div className="mb-2">
+                        <label className="form-label">Clinic name</label>
+                        <input placeholder="Clinic name" value={c.clinicName || ''} onChange={(e) => handleClinicChange(idx, 'clinicName', e.target.value)} className="form-control mb-2" />
+
+                        <label className="form-label">Address</label>
+                        <textarea placeholder="Full address (use new lines)" value={c.address || ''} onChange={(e) => handleClinicChange(idx, 'address', e.target.value)} className="form-control mb-1" rows={3} />
+                        { (c.parts && c.parts.length) ? (
+                          <small className="text-muted">Parsed address parts: {c.parts.join(' • ')}</small>
+                        ) : (
+                          <small className="text-muted">Enter full address; the form will try to parse City/State/PIN.</small>
+                        ) }
+                      </div>
+
+                      <div className="row g-2 mt-3">
+                        <div className="col-md-6">
+                          <label className="form-label">Landmark</label>
+                          <input placeholder="Landmark" value={c.landmark || ''} onChange={(e) => handleClinicChange(idx, 'landmark', e.target.value)} className="form-control" />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label">PIN</label>
+                          <input placeholder="PIN (6 digits)" value={c.pin || ''} onChange={(e) => handleClinicChange(idx, 'pin', e.target.value)} className="form-control" />
+                        </div>
+
+                        <div className="col-md-4 mt-2">
+                          <label className="form-label">State</label>
+                          <input placeholder="State" value={c.state || ''} onChange={(e) => handleClinicChange(idx, 'state', e.target.value)} className="form-control" />
+                        </div>
+                        <div className="col-md-4 mt-2">
+                          <label className="form-label">District</label>
+                          <input placeholder="District" value={c.district || ''} onChange={(e) => handleClinicChange(idx, 'district', e.target.value)} className="form-control" />
+                        </div>
+                        <div className="col-md-4 mt-2">
+                          <label className="form-label">City</label>
+                          <input placeholder="City" value={c.city || ''} onChange={(e) => handleClinicChange(idx, 'city', e.target.value)} className="form-control" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div>
+                    <button type="button" className="btn btn-sm btn-outline-primary" onClick={addClinic}>Add Clinic</button>
+                  </div>
+                </div>
               </div>
-              <div className="col-md-2">
-                <label className="form-label">State</label>
-                <input name="state" value={form.state} onChange={handleChange} className="form-control" />
-              </div>
-              <div className="col-md-2">
-                <label className="form-label">District</label>
-                <input name="district" value={form.district} onChange={handleChange} className="form-control" />
-              </div>
-              <div className="col-md-1">
-                <label className="form-label">City</label>
-                <input name="city" value={form.city} onChange={handleChange} className="form-control" />
-              </div>
-              <div className="col-md-1">
-                <label className="form-label">PIN</label>
-                <input name="pin" value={form.pin} onChange={handleChange} className="form-control" />
-              </div>
+ 
 
               <div className="col-md-6">
                 <label className="form-label">Contact Person Name</label>

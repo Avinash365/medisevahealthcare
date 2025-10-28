@@ -16,4 +16,15 @@ Route::delete('/onboarding/{id}', [OnboardingController::class, 'destroy']);
 Route::post('/appointments', [AppointmentController::class, 'store']);
 Route::get('/appointments', [AppointmentController::class, 'index']);
 
+// Payments
+use App\Http\Controllers\PaymentController;
+Route::post('/payments/create-order', [PaymentController::class, 'createOrder']);
+Route::post('/payments/verify-and-create', [PaymentController::class, 'verifyAndCreateAppointment']);
+
+use App\Http\Controllers\AuthController;
+// Authentication
+Route::post('/auth/register', [AuthController::class, 'register']);
+Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware(\App\Http\Middleware\ApiTokenAuth::class);
+
 

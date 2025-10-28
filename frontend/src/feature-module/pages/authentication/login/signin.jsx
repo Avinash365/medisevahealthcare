@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { all_routes } from "../../../../routes/all_routes";
 import { appleLogo, facebookLogo, googleLogo, logoPng, logoWhitePng } from "../../../../utils/imagepath";
+import { setToken, setUser } from "../../../../utils/auth";
 
 
 const Signin = () => {
@@ -12,6 +13,40 @@ const Signin = () => {
   };
 
   const route = all_routes;
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const text = await res.text();
+      let j = null;
+      try { j = JSON.parse(text); } catch (_) { j = null; }
+      if (!res.ok) {
+        const msg = j?.message || j?.error || (text && String(text).trim().slice(0,300)) || res.statusText || 'Login failed. Please try again.';
+        setError(msg);
+        setLoading(false);
+        return;
+      }
+      setError(null);
+      setToken(j.token || j?.user?.api_token);
+      setUser(j.user || null);
+      navigate(route.newdashboard);
+    } catch (err) {
+      setError(err.message || 'Login failed. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
@@ -20,7 +55,7 @@ const Signin = () => {
         <div className="account-content">
           <div className="login-wrapper bg-img">
             <div className="login-content authent-content">
-              <form>
+              <form onSubmit={submit}>
                 <div className="login-userset">
                   <div className="login-logo logo-normal">
                     <img src={logoPng} alt="img" />
@@ -34,6 +69,11 @@ const Signin = () => {
                       Access the Dreamspos panel using your email and passcode.
                     </h4>
                   </div>
+                  {error && (
+                    <div className="mb-3">
+                      <div className="alert alert-danger" role="alert">{error}</div>
+                    </div>
+                  )}
                   <div className="mb-3">
                     <label className="form-label">
                       Email <span className="text-danger"> *</span>
@@ -41,7 +81,8 @@ const Signin = () => {
                     <div className="input-group">
                       <input
                         type="text"
-                        defaultValue=""
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         className="form-control border-end-0" />
                       
                       <span className="input-group-text border-start-0">
@@ -56,6 +97,8 @@ const Signin = () => {
                     <div className="pass-group">
                       <input
                         type={isPasswordVisible ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         className="pass-input form-control" />
                       
                       <span
@@ -88,12 +131,9 @@ const Signin = () => {
                     </div>
                   </div>
                   <div className="form-login">
-                    <Link
-                      to={route.newdashboard}
-                      className="btn btn-primary w-100">
-                      
-                      Sign In
-                    </Link>
+                    <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+                      {loading ? 'Signing in...' : 'Sign In'}
+                    </button>
                   </div>
                   <div className="signinform">
                     <h4>

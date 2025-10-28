@@ -21,6 +21,7 @@ class Onboarding extends Model
         'department',
         'contact',
         'clinic_address',
+        'clinics',
         'schedule',
         'fee',
         'declaration',
@@ -29,6 +30,7 @@ class Onboarding extends Model
     protected $casts = [
         'qualifications' => 'array',
         'schedule' => 'array',
+        'clinics' => 'array',
         'dob' => 'date',
         'fee' => 'decimal:2',
         'declaration' => 'boolean',

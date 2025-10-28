@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { all_routes } from "../../../../routes/all_routes";
 import { appleLogo, facebookLogo, googleLogo, logo, logoWhite } from "../../../../utils/imagepath";
+import { setToken, setUser } from "../../../../utils/auth";
 
 const Register = () => {
   const [passwordVisibility, setPasswordVisibility] = useState({
@@ -17,6 +18,41 @@ const Register = () => {
   };
 
   const route = all_routes;
+  const navigate = useNavigate();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (password !== confirmPassword) return alert('Passwords do not match');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+      const text = await res.text();
+      let j = null;
+      try { j = JSON.parse(text); } catch (_) { j = null; }
+      if (!res.ok) {
+        const msg = j?.message || j?.error || (text && String(text).trim().slice(0,300)) || res.statusText || 'Registration failed. Please try again.';
+        setError(msg);
+        setLoading(false);
+        return;
+      }
+      setError(null);
+      setToken(j.token || j?.user?.api_token);
+      setUser(j.user || null);
+      navigate(route.newdashboard);
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again later.');
+    } finally { setLoading(false); }
+  };
   return (
     <>
       {/* Main Wrapper */}
@@ -24,7 +60,7 @@ const Register = () => {
         <div className="account-content">
           <div className="login-wrapper register-wrap bg-img">
             <div className="login-content authent-content">
-              <form>
+              <form onSubmit={submit}>
                 <div className="login-userset">
                   <div className="login-logo logo-normal">
                     <img src={logo} alt="img" />
@@ -36,6 +72,11 @@ const Register = () => {
                     <h3>Register</h3>
                     <h4>Create New Dreamspos Account</h4>
                   </div>
+                  {error && (
+                    <div className="mb-3">
+                      <div className="alert alert-danger" role="alert">{error}</div>
+                    </div>
+                  )}
                   <div className="mb-3">
                     <label className="form-label">
                       Name <span className="text-danger"> *</span>
@@ -43,7 +84,8 @@ const Register = () => {
                     <div className="input-group">
                       <input
                         type="text"
-                        defaultValue=""
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
                         className="form-control border-end-0" />
                       
                       <span className="input-group-text border-start-0">
@@ -58,7 +100,8 @@ const Register = () => {
                     <div className="input-group">
                       <input
                         type="text"
-                        defaultValue=""
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         className="form-control border-end-0" />
                       
                       <span className="input-group-text border-start-0">
@@ -73,6 +116,8 @@ const Register = () => {
                     <div className="pass-group">
                       <input
                         type={passwordVisibility.password ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         className="pass-input form-control" />
                       
                       <span
@@ -107,11 +152,9 @@ const Register = () => {
                          }
                         ></span> */}
                       <input
-                        type={
-                        passwordVisibility.confirmPassword ?
-                        "text" :
-                        "password"
-                        }
+                        type={passwordVisibility.confirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
                         className="pass-inputs form-control" />
                       
                       <span
@@ -140,9 +183,9 @@ const Register = () => {
                     </div>
                   </div>
                   <div className="form-login">
-                    <Link to={route.signin} className="btn btn-login">
-                      Sign Up
-                    </Link>
+                    <button type="submit" className="btn btn-login" disabled={loading}>
+                      {loading ? 'Signing up...' : 'Sign Up'}
+                    </button>
                   </div>
                   <div className="signinform">
                     <h4>

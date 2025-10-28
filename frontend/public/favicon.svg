@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- Simple lotus-like shape with red petals and a white cross in center -->
+  <defs>
+    <radialGradient id="g" cx="50%" cy="35%">
+      <stop offset="0%" stop-color="#ff5a6a"/>
+      <stop offset="100%" stop-color="#c81b3a"/>
+    </radialGradient>
+  </defs>
+  <rect width="120" height="120" rx="16" ry="16" fill="#ffffff00" />
+  <g transform="translate(60,60)">
+    <!-- petals: three top, two sides, two bottom -->
+    <path d="M0,-24 C10,-36 28,-44 40,-36 C34,-20 10,-6 0,-6 C-10,-6 -34,-20 -40,-36 C-28,-44 -10,-36 0,-24 Z" fill="url(#g)"/>
+    <path d="M-28,-6 C-38,6 -44,26 -34,36 C-18,28 -6,10 -6,0 C-6,-10 -18,-22 -28,-6 Z" fill="url(#g)"/>
+    <path d="M28,-6 C38,6 44,26 34,36 C18,28 6,10 6,0 C6,-10 18,-22 28,-6 Z" fill="url(#g)"/>
+    <path d="M-20,28 C-8,36 8,36 20,28 C6,16 -6,16 -20,28 Z" fill="url(#g)"/>
+    <!-- white cross -->
+    <g fill="#ffffff">
+      <rect x="-6" y="-14" width="12" height="28" rx="2"/>
+      <rect x="-14" y="-6" width="28" height="12" rx="2"/>
+    </g>
+  </g>
+</svg>

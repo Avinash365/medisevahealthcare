@@ -39,8 +39,9 @@ const ShowAppointments = () => {
         mobile: a.mobile_primary,
         appointment_date: a.appointment_date ? (new Date(a.appointment_date)).toISOString().slice(0,10) : '',
         doctor: doctorMap[a.doctor_id] || (a.doctor_id ? `#${a.doctor_id}` : ''),
-        state: a.state || '',
+        clinic: (a.clinic && (a.clinic.clinicName || a.clinic.name || a.clinic.label)) ? (a.clinic.clinicName || a.clinic.name || a.clinic.label) : (a.clinic && a.clinic.address ? (String(a.clinic.address).split('\n')[0]) : ''),
         city: a.city || '',
+        status: (a.payment_status || a.status || 'unknown'),
         raw: a
       }));
 
@@ -55,10 +56,10 @@ const ShowAppointments = () => {
 
   const exportCsv = () => {
     if (!data || data.length === 0) return;
-    const headers = ['Patient','Mobile','Appointment Date','Doctor','State','City'];
+    const headers = ['Patient','Mobile','Appointment Date','Doctor','Clinic','City','Status'];
     const csvRows = [headers.join(',')];
     data.forEach(r => {
-      const vals = [r.patient, r.mobile, r.appointment_date, r.doctor, r.state, r.city];
+      const vals = [r.patient, r.mobile, r.appointment_date, r.doctor, r.clinic, r.city, r.status];
       const esc = vals.map(v => v == null ? '' : String(v).replace(/"/g,'""'));
       csvRows.push(esc.join(','));
     });
@@ -70,8 +71,8 @@ const ShowAppointments = () => {
   const exportPdf = () => {
     if (!data || data.length === 0) return;
     const style = `<style>body{font-family: Arial}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#f5f6fa}</style>`;
-    const headers = ['Patient','Mobile','Appointment Date','Doctor','State','City'];
-    const rowsHtml = data.map(r => `<tr><td>${escapeHtml(r.patient)}</td><td>${escapeHtml(r.mobile)}</td><td>${escapeHtml(r.appointment_date)}</td><td>${escapeHtml(r.doctor)}</td><td>${escapeHtml(r.state)}</td><td>${escapeHtml(r.city)}</td></tr>`).join('');
+  const headers = ['Patient','Mobile','Appointment Date','Doctor','Clinic','City','Status'];
+  const rowsHtml = data.map(r => `<tr><td>${escapeHtml(r.patient)}</td><td>${escapeHtml(r.mobile)}</td><td>${escapeHtml(r.appointment_date)}</td><td>${escapeHtml(r.doctor)}</td><td>${escapeHtml(r.clinic)}</td><td>${escapeHtml(r.city)}</td><td>${escapeHtml(r.status)}</td></tr>`).join('');
     const html = `<!doctype html><html><head><meta charset="utf-8"/>${style}</head><body><h2>Appointments</h2><table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
     const w = window.open('','_blank'); if (!w) return; w.document.open(); w.document.write(html); w.document.close(); setTimeout(()=>{ w.focus(); w.print(); }, 400);
   };
@@ -86,8 +87,9 @@ const ShowAppointments = () => {
     { header: 'Mobile', field: 'mobile' },
     { header: 'Appointment Date', field: 'appointment_date' },
     { header: 'Doctor', field: 'doctor' },
-    { header: 'State', field: 'state' },
-    { header: 'City', field: 'city' }
+    { header: 'Clinic', field: 'clinic' },
+    { header: 'City', field: 'city' },
+    { header: 'Status', field: 'status' }
   ];
 
   return (

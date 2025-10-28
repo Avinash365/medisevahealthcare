@@ -23,7 +23,14 @@ class AppointmentController extends Controller
                 'mobile_alternate' => 'nullable|string|max:20',
                 'disease' => 'nullable|string|max:255',
                 'appointment_date' => 'required|date',
+                'time_slot' => 'nullable|string|max:100',
+                'fee' => 'nullable|numeric',
+                'payment_type' => 'nullable|string|max:50',
+                'payment_amount' => 'nullable|numeric',
+                'payment_mode' => 'nullable|string|max:50',
+                'payment_status' => 'nullable|string|max:50',
                 'doctor_id' => 'nullable|integer',
+                'clinic' => 'nullable|array',
                 'state' => 'nullable|string|max:255',
                 'city' => 'nullable|string|max:255',
             ]);
@@ -44,7 +51,15 @@ class AppointmentController extends Controller
      */
     public function index(Request $request)
     {
-        $q = Appointment::orderBy('created_at', 'desc')->limit(200)->get();
+        $query = Appointment::query();
+        // optional filtering by doctor and date for frontend slot blocking
+        if ($request->has('doctor_id')) {
+            $query->where('doctor_id', $request->get('doctor_id'));
+        }
+        if ($request->has('appointment_date')) {
+            $query->whereDate('appointment_date', $request->get('appointment_date'));
+        }
+        $q = $query->orderBy('created_at', 'desc')->limit(500)->get();
         return response()->json(['success' => true, 'data' => $q], 200);
     }
 }

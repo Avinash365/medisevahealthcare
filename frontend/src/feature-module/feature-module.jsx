@@ -4,6 +4,9 @@ import Header from "../components/header";
 import Sidebar from "../components/sidebar";
 import ThemeSettings from "../components/layouts/themeSettings";
 import { authRoutes, posPages, unAuthRoutes } from "../routes/path";
+import { isAuthenticated } from "../utils/auth";
+import { all_routes } from "../routes/all_routes";
+import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import TwoColumnSidebar from "../components/layouts/two-column";
 import HorizontalSidebar from "../components/layouts/horizontalSidebar";
@@ -90,6 +93,10 @@ const FeatureModule = () => {
   }
 
   if (isAuthRoute) {
+    if (!isAuthenticated()) {
+      return <Navigate to={all_routes.signin} replace />;
+    }
+
     return (
       <div className={`main-wrapper ${toggleHeader ? "header-collapse" : ""}`}>
         <>

@@ -21,12 +21,26 @@ class Appointment extends Model
         'disease',
         'appointment_date',
         'doctor_id',
+        'clinic',
         'state',
         'city',
+        'time_slot',
+        'fee',
+        'payment_type',
+        'payment_amount',
+        'payment_mode',
+        'payment_status',
+        'payment_reference',
+        'payment_gateway',
+        'payment_verified_at',
     ];
 
     protected $casts = [
         'address' => 'array',
+        'clinic' => 'array',
         'appointment_date' => 'date',
+        'fee' => 'decimal:2',
+        'payment_amount' => 'decimal:2',
+        'payment_verified_at' => 'datetime',
     ];
 }

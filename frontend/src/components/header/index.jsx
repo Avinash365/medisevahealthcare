@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { all_routes } from "../../routes/all_routes";
 import {
@@ -23,8 +23,10 @@ import {
   store_04,
   usFlag } from
 "../../utils/imagepath";
+import { clearToken, fetchWithAuth } from "../../utils/auth";
 const Header = () => {
   const route = all_routes;
+  const navigate = useNavigate();
   const [toggle, SetToggle] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [flagImage, _setFlagImage] = useState(usFlag);
@@ -347,165 +349,7 @@ const Header = () => {
             {/* /Search */}
 
             {/* Select Store */}
-            <li className="nav-item dropdown has-arrow main-drop select-store-dropdown">
-              <Link
-                to="#"
-                className="dropdown-toggle nav-link select-store"
-                data-bs-toggle="dropdown">
-                
-                <span className="user-info">
-                  <span className="user-letter">
-                    <img
-                      src={store_01}
-                      alt="Store Logo"
-                      className="img-fluid" />
-                    
-                  </span>
-                  <span className="user-detail">
-                    <span className="user-name">Freshmart</span>
-                  </span>
-                </span>
-              </Link>
-              <div className="dropdown-menu dropdown-menu-right">
-                <Link to="#" className="dropdown-item">
-                  <img src={store_01} alt="Store Logo" className="img-fluid" />
-                  Freshmart
-                </Link>
-                <Link to="#" className="dropdown-item">
-                  <img src={store_02} alt="Store Logo" className="img-fluid" />
-                  Grocery Apex
-                </Link>
-                <Link to="#" className="dropdown-item">
-                  <img src={store_03} alt="Store Logo" className="img-fluid" />
-                  Grocery Bevy
-                </Link>
-                <Link to="#" className="dropdown-item">
-                  <img src={store_04} alt="Store Logo" className="img-fluid" />
-                  Grocery Eden
-                </Link>
-              </div>
-            </li>
-            {/* /Select Store */}
-
-            <li className="nav-item dropdown link-nav">
-              <Link
-                to="#"
-                className="btn btn-primary btn-md d-inline-flex align-items-center"
-                data-bs-toggle="dropdown">
-                
-                <i className="ti ti-circle-plus me-1" />
-                Add New
-              </Link>
-              <div className="dropdown-menu dropdown-xl dropdown-menu-center">
-                <div className="row g-2">
-                  <div className="col-md-2">
-                    <Link to={route.categorylist} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-brand-codepen" />
-                      </span>
-                      <p>Category</p>
-                    </Link>
-                  </div>
-                  <div className="col-md-2">
-                    <Link to={route.addproduct} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-square-plus" />
-                      </span>
-                      <p>Product</p>
-                    </Link>
-                  </div>
-                  <div className="col-md-2">
-                    <Link to={route.categorylist} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-shopping-bag" />
-                      </span>
-                      <p>Purchase</p>
-                    </Link>
-                  </div>
-                  <div className="col-md-2">
-                    <Link to={route.onlineorder} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-shopping-cart" />
-                      </span>
-                      <p>Sale</p>
-                    </Link>
-                  </div>
-                  <div className="col-md-2">
-                    <Link to={route.expenselist} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-file-text" />
-                      </span>
-                      <p>Expense</p>
-                    </Link>
-                  </div>
-                  <div className="col-md-2">
-                    <Link to={route.quotationlist} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-device-floppy" />
-                      </span>
-                      <p>Quotation</p>
-                    </Link>
-                  </div>
-                  <div className="col-md-2">
-                    <Link to={route.salesreturn} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-copy" />
-                      </span>
-                      <p>Return</p>
-                    </Link>
-                  </div>
-                  <div className="col-md-2">
-                    <Link to={route.users} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-user" />
-                      </span>
-                      <p>User</p>
-                    </Link>
-                  </div>
-                  <div className="col-md-2">
-                    <Link to={route.customer} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-users" />
-                      </span>
-                      <p>Customer</p>
-                    </Link>
-                  </div>
-                  <div className="col-md-2">
-                    <Link to={route.salesreport} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-shield" />
-                      </span>
-                      <p>Biller</p>
-                    </Link>
-                  </div>
-                  <div className="col-md-2">
-                    <Link to={route.suppliers} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-user-check" />
-                      </span>
-                      <p>Supplier</p>
-                    </Link>
-                  </div>
-                  <div className="col-md-2">
-                    <Link to={route.stocktransfer} className="link-item">
-                      <span className="link-icon">
-                        <i className="ti ti-truck" />
-                      </span>
-                      <p>Transfer</p>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </li>
-            <li className="nav-item pos-nav">
-              <Link
-                to={route.pos}
-                className="btn btn-dark btn-md d-inline-flex align-items-center">
-                
-                <i className="ti ti-device-laptop me-1" />
-                POS
-              </Link>
-            </li>
+             
 
             {/* Flag */}
             <li className="nav-item dropdown has-arrow flag-nav nav-item-box">
@@ -699,10 +543,10 @@ const Header = () => {
                   Settings
                 </Link>
                 <hr className="my-2" />
-                <Link className="dropdown-item logout pb-0" to={route.signin}>
+                <a className="dropdown-item logout pb-0" href="#" onClick={async (ev) => { ev.preventDefault(); try { await fetchWithAuth('/api/auth/logout', { method: 'POST' }); } catch (e) { /* ignore */ } clearToken(); navigate(route.signin); }}>
                   <i className="ti ti-logout me-2" />
                   Logout
-                </Link>
+                </a>
               </div>
             </li>
           </ul>

@@ -111,7 +111,8 @@ class OnboardingController extends Controller
             'qualifications' => 'nullable|array',
             'department' => 'required|string|max:255',
             'contact' => 'required|string|max:20',
-            'clinic_address' => 'required|string|max:255',
+            'clinic_address' => 'required|string|max:65535',
+            'clinics' => 'nullable|array',
             'schedule' => 'nullable|array',
             'fee' => 'required|numeric',
             'declaration' => 'required|boolean',
@@ -124,6 +125,14 @@ class OnboardingController extends Controller
 
         if (isset($data['schedule']) && is_array($data['schedule'])) {
             $data['schedule'] = json_encode($data['schedule']);
+        }
+
+        // store clinics as JSON if provided (array of clinic objects)
+        if (isset($data['clinics']) && is_array($data['clinics'])) {
+            $data['clinics'] = json_encode($data['clinics']);
+        } else {
+            // if clinics not provided but clinic_address exists, ensure clinics field is null or a single entry
+            $data['clinics'] = null;
         }
 
         //  Create record
@@ -165,7 +174,8 @@ class OnboardingController extends Controller
                 'qualifications' => 'nullable|array',
                 'department' => 'sometimes|required|string|max:255',
                 'contact' => 'sometimes|required|string|max:20',
-                'clinic_address' => 'sometimes|required|string|max:255',
+                'clinic_address' => 'sometimes|required|string|max:65535',
+                'clinics' => 'nullable|array',
                 'schedule' => 'nullable|array',
                 'fee' => 'sometimes|required|numeric',
                 'declaration' => 'sometimes|required|boolean',
@@ -177,6 +187,10 @@ class OnboardingController extends Controller
 
             if (isset($data['schedule']) && is_array($data['schedule'])) {
                 $data['schedule'] = json_encode($data['schedule']);
+            }
+
+            if (isset($data['clinics']) && is_array($data['clinics'])) {
+                $data['clinics'] = json_encode($data['clinics']);
             }
 
             $onboarding->update($data);
