@@ -181,6 +181,15 @@ const BookAppointment = () => {
       return null;
     };
 
+    // attach agent name if available
+    try {
+      const auth = await import('../../utils/auth');
+      const u = auth.getUser();
+      if (u && (u.name || u.email)) payload.agent_name = u.name || u.email;
+    } catch (e) {
+      // ignore
+    }
+
     const citiesForStateSet = new Set();
     doctors.forEach(d => {
       // only consider doctor if its state matches selectedState via flexible matching

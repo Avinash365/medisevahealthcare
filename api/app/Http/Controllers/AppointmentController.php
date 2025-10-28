@@ -25,6 +25,7 @@ class AppointmentController extends Controller
                 'appointment_date' => 'required|date',
                 'time_slot' => 'nullable|string|max:100',
                 'fee' => 'nullable|numeric',
+                'agent_name' => 'nullable|string|max:255',
                 'payment_type' => 'nullable|string|max:50',
                 'payment_amount' => 'nullable|numeric',
                 'payment_mode' => 'nullable|string|max:50',

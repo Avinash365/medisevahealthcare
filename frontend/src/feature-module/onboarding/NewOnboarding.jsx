@@ -300,6 +300,17 @@ const NewOnboarding = () => {
         online: form.scheduleOnline
       };
 
+      // attach agent name (the person filling the form) if available
+      try {
+        const auth = await import('../../utils/auth');
+        const u = auth.getUser();
+        if (u && (u.name || u.email)) {
+          payload.agent_name = u.name || u.email;
+        }
+      } catch (e) {
+        // ignore if auth helper missing or errors
+      }
+
       // attach parsed fields to clinics before sending
       const clinicsPayload = (form.clinics || []).map((c) => {
         const addr = c.address || '';

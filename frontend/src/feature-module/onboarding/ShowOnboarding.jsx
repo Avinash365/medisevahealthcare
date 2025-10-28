@@ -28,10 +28,10 @@ const ShowOnboarding = () => {
       alert('No records to export');
       return;
     }
-    const headers = ["Reg. No","Doctor's Name","Qualification","Specialty","City"];
+    const headers = ["Reg. No","Doctor's Name","Qualification","Specialty","City","Agent"];
     const csvRows = [headers.join(',')];
     data.forEach((row) => {
-      const values = [row.reg_no, row.doctor_name, row.qualification, row.specialty, row.city];
+      const values = [row.reg_no, row.doctor_name, row.qualification, row.specialty, row.city, row.agent];
       // Escape values that contain commas or quotes
       const esc = values.map((v) => {
         if (v === null || typeof v === 'undefined') return '';
@@ -67,7 +67,7 @@ const ShowOnboarding = () => {
         th { background: #f5f6fa; }
       </style>
     `;
-    const headers = ['Reg. No', "Doctor's Name", 'Qualification', 'Specialty', 'City'];
+    const headers = ['Reg. No', "Doctor's Name", 'Qualification', 'Specialty', 'City', 'Agent'];
     const rowsHtml = data.map(r => `
       <tr>
         <td>${escapeHtml(r.reg_no)}</td>
@@ -75,6 +75,7 @@ const ShowOnboarding = () => {
         <td>${escapeHtml(r.qualification)}</td>
         <td>${escapeHtml(r.specialty)}</td>
         <td>${escapeHtml(r.city)}</td>
+        <td>${escapeHtml(r.agent)}</td>
       </tr>
     `).join('');
     const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Onboardings</title>${style}</head><body>
@@ -126,6 +127,7 @@ const ShowOnboarding = () => {
         qualification: parseQualifications(item.qualifications),
         specialty: item.doctor || item.department || '-',
         city: item.clinic_address || '-',
+        agent: item.agent_name || '-',
         raw: item
       }));
 
@@ -166,7 +168,8 @@ const ShowOnboarding = () => {
     { header: "Doctor's Name", field: 'doctor_name' },
     { header: 'Qualification', field: 'qualification' },
     { header: 'Specialty', field: 'specialty' },
-    { header: 'City', field: 'city' },
+  { header: 'City', field: 'city' },
+  { header: 'Agent', field: 'agent' },
     {
       header: 'Action',
       field: 'action',

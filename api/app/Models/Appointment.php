@@ -33,6 +33,7 @@ class Appointment extends Model
         'payment_reference',
         'payment_gateway',
         'payment_verified_at',
+        'agent_name',
     ];
 
     protected $casts = [

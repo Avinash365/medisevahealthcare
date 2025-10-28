@@ -110,6 +110,7 @@ class OnboardingController extends Controller
             'dob' => 'required|date',
             'qualifications' => 'nullable|array',
             'department' => 'required|string|max:255',
+            'agent_name' => 'nullable|string|max:255',
             'contact' => 'required|string|max:20',
             'clinic_address' => 'required|string|max:65535',
             'clinics' => 'nullable|array',

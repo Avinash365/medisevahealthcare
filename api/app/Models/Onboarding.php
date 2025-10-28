@@ -19,6 +19,7 @@ class Onboarding extends Model
         'dob',
         'qualifications',
         'department',
+        'agent_name',
         'contact',
         'clinic_address',
         'clinics',
