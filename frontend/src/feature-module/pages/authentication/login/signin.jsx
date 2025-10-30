@@ -22,8 +22,9 @@ const Signin = () => {
   const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    try {
-      const res = await fetch('/api/auth/login', {
+    try { 
+      const baseUrl = import.meta.env.VITE_APP_API_BASE; 
+      const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
