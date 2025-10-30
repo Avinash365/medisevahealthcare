@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Toast } from 'react-bootstrap';
+import { getUser } from '../../utils/auth';
 
 const BookAppointment = () => {
   const [doctors, setDoctors] = useState([]);
@@ -181,14 +182,7 @@ const BookAppointment = () => {
       return null;
     };
 
-    // attach agent name if available
-    try {
-      const auth = await import('../../utils/auth');
-      const u = auth.getUser();
-      if (u && (u.name || u.email)) payload.agent_name = u.name || u.email;
-    } catch (e) {
-      // ignore
-    }
+    // agent name handled when submitting the form; nothing to do here
 
     const citiesForStateSet = new Set();
     doctors.forEach(d => {
@@ -543,6 +537,7 @@ const BookAppointment = () => {
     ,
       fee: (function(){ const doc = doctors.find(d => String(d.id) === String(form.doctorId)); return getDoctorFee(doc, form.clinicIndex); })(),
       time_slot: form.timeSlot || null,
+      agent_name: (function(){ try { const u = getUser(); return u ? (u.name || u.email) : null; } catch(e){ return null; } })(),
       payment_type: form.paymentType || null,
       payment_amount: form.paymentAmount ? Number(form.paymentAmount) : null,
       payment_mode: form.paymentMode || null,
