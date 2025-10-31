@@ -70,7 +70,7 @@ const Register = () => {
                   </Link>
                   <div className="login-userheading">
                     <h3>Register</h3>
-                    <h4>Create New Dreamspos Account</h4>
+                    <h4>Create New MediSeva Account</h4>
                   </div>
                   {error && (
                     <div className="mb-3">
