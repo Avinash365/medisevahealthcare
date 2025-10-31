@@ -2261,7 +2261,7 @@ const NewDashboard = () => {
           2014-2025 © Mediseva Healthcare. All Rights Reserved
         </p>
         <p>
-          Designed &amp; Developed By Mediseva
+          Designed &amp; Developed By Gen Skytech
         </p>
       </div>
     </div>);
