@@ -66,7 +66,7 @@ const Signin = () => {
                   <div className="login-userheading">
                     <h3>Sign In</h3>
                     <h4 className="fs-16">
-                      Access the Dreamspos panel using your email and passcode.
+                      Access the MediSeva panel using your email and passcode.
                     </h4>
                   </div>
                   {error && (
@@ -188,7 +188,7 @@ const Signin = () => {
                     </div>
                   </div>
                   <div className="my-4 d-flex justify-content-center align-items-center copyright-text">
-                    <p>Copyright © 2025 DreamsPOS</p>
+                    <p>Copyright © 2025 MediSeva</p>
                   </div>
                 </div>
               </form>

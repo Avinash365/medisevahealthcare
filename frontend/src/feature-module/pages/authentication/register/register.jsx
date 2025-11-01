@@ -70,7 +70,7 @@ const Register = () => {
                   </Link>
                   <div className="login-userheading">
                     <h3>Register</h3>
-                    <h4>Create New Dreamspos Account</h4>
+                    <h4>Create New MediSeva Account</h4>
                   </div>
                   {error && (
                     <div className="mb-3">
@@ -239,7 +239,7 @@ const Register = () => {
                     </div>
                   </div>
                   <div className="my-4 d-flex justify-content-center align-items-center copyright-text">
-                    <p>Copyright © 2025 DreamsPOS</p>
+                    <p>Copyright © 2025 MediSevaHealthCare</p>
                   </div>
                 </div>
               </form>

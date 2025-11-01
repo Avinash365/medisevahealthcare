@@ -116,7 +116,8 @@ const ShowOnboarding = () => {
       params.set('per_page', opts.per_page || rows);
       params.set('page', opts.page || currentPage);
 
-      const res = await fetch('/api/onboarding?' + params.toString());
+      const APP_API_BASE = Import.meta.env.VITE_APP_API_BASE;
+      const res = await fetch(`${APP_API_BASE}/api/onboarding?` + params.toString());
       if (!res.ok) throw new Error('Failed to load');
       const json = await res.json();
 
@@ -187,10 +188,11 @@ const ShowOnboarding = () => {
     }
   ];
 
+  const APP_API_BASE = Import.meta.env.VITE_APP_API_BASE;
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      const res = await fetch(`/api/onboarding/${deleteId}`, { method: 'DELETE' });
+      const res = await fetch(`${APP_API_BASE}/api/onboarding/${deleteId}`, { method: 'DELETE' });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.error || 'Delete failed');

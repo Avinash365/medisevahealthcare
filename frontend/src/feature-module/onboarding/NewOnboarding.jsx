@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Toast } from 'react-bootstrap';
 
+
 const initialState = {
   doctorName: "",
   regNo: "",
@@ -62,6 +63,7 @@ const NewOnboarding = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [editId, setEditId] = useState(null);
+  const APP_API_BASE = Import.meta.env.VITE_APP_API_BASE;
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -71,7 +73,7 @@ const NewOnboarding = () => {
       // fetch record
       (async () => {
         try {
-          const res = await fetch(`/api/onboarding/${id}`);
+          const res = await fetch(`${APP_API_BASE}/api/onboarding/${id}`);
           if (!res.ok) throw new Error('Failed to load');
           const json = await res.json();
           const item = json?.data || json;

@@ -15,9 +15,10 @@ const ShowAppointments = () => {
 
   const fetchData = async () => {
     try {
+      const APP_API_BASE = Import.meta.env.VITE_APP_API_BASE;
       const [resAppt, resOnb] = await Promise.all([
-        fetch('/api/appointments'),
-        fetch('/api/onboarding?per_page=1000')
+        fetch(`${APP_API_BASE}/api/appointments`),
+        fetch(`${APP_API_BASE}/api/onboarding?per_page=1000`)
       ]);
       if (!resAppt.ok) throw new Error('Failed to load appointments');
       const apptJson = await resAppt.json();
