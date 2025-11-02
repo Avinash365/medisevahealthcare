@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiBase } from '../../utils/apiBase';
+import { Toast } from 'react-bootstrap';
 
 const BookEnquiry = () => {
   const [form, setForm] = useState({
@@ -54,16 +55,18 @@ const BookEnquiry = () => {
     }
   };
 
-  const variantClass = toastVariant === 'success' ? 'alert-success' : toastVariant === 'info' ? 'alert-info' : 'alert-danger';
-
   return (
     <div className="page-wrapper">
       <div className="content">
-        {showToast && (
-          <div className={`alert ${variantClass} mt-2`} role="alert">
-            {toastMessage}
-          </div>
-        )}
+        {/* Toast notification (top-right) */}
+        <div aria-live="polite" aria-atomic="true" className="position-fixed" style={{ top: 20, right: 20, zIndex: 1060 }}>
+          <Toast onClose={() => setShowToast(false)} show={showToast} bg={toastVariant} delay={3000} autohide>
+            <Toast.Header>
+              <strong className="me-auto">Notification</strong>
+            </Toast.Header>
+            <Toast.Body className={toastVariant === 'success' ? 'text-white' : ''}>{toastMessage}</Toast.Body>
+          </Toast>
+        </div>
         <div className="page-header d-flex align-items-center justify-content-between flex-wrap row-gap-3">
           <div>
             <h3 className="mb-0">Book Enquiry</h3>

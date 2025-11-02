@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import PrimeDataTable from "../../components/data-table";
 import TableTopHead from "../../components/table-top-head";
 import SearchFromApi from "../../components/data-table/search";
+import { getApiBase } from '../../utils/apiBase';
 
 const ShowOnboarding = () => {
   const [rows, setRows] = useState(10);
@@ -116,7 +117,7 @@ const ShowOnboarding = () => {
       params.set('per_page', opts.per_page || rows);
       params.set('page', opts.page || currentPage);
 
-  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE;
+  const APP_API_BASE = getApiBase();
       const res = await fetch(`${APP_API_BASE}/api/onboarding?` + params.toString());
       if (!res.ok) throw new Error('Failed to load');
       const json = await res.json();
@@ -188,7 +189,7 @@ const ShowOnboarding = () => {
     }
   ];
 
-  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE;
+  const APP_API_BASE = getApiBase();
   const handleDelete = async () => {
     if (!deleteId) return;
     try {

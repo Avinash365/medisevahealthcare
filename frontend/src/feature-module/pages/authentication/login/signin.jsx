@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { all_routes } from "../../../../routes/all_routes";
 import { appleLogo, facebookLogo, googleLogo, logoPng, logoWhitePng } from "../../../../utils/imagepath";
 import { setToken, setUser } from "../../../../utils/auth";
+import { getApiBase } from '../../../../utils/apiBase';
 
 
 const Signin = () => {
@@ -23,8 +24,8 @@ const Signin = () => {
     e.preventDefault();
     setLoading(true);
     try { 
-      const baseUrl = import.meta.env.VITE_APP_API_BASE; 
-      const res = await fetch(`${baseUrl}/api/auth/login`, {
+  const baseUrl = getApiBase();
+  const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })

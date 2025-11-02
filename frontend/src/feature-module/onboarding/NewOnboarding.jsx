@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Toast } from 'react-bootstrap';
+import { getApiBase } from '../../utils/apiBase';
 
 
 const initialState = {
@@ -63,7 +64,7 @@ const NewOnboarding = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [editId, setEditId] = useState(null);
-  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE;
+  const APP_API_BASE = getApiBase();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -345,9 +346,9 @@ const NewOnboarding = () => {
         declaration: !!form.declaration
       };
 
-      // Prefer using Vite proxy for local dev: send requests to '/api/onboarding' unless VITE_API_BASE is explicitly set.
-      const envBase = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) ? import.meta.env.VITE_API_BASE : '';
-      const backendUrl = envBase && envBase.trim() !== '' ? `${envBase.replace(/\/$/, '')}/api/onboarding` : '/api/onboarding';
+  // Build backend URL using shared APP_API_BASE (getApiBase()). If running locally APP_API_BASE is '',
+  // so we use the relative '/api/onboarding' which will be proxied by Vite.
+  const backendUrl = APP_API_BASE && APP_API_BASE.trim() !== '' ? `${APP_API_BASE.replace(/\/$/, '')}/api/onboarding` : '/api/onboarding';
       const method = editId ? 'PUT' : 'POST';
       const url = editId ? `${backendUrl.replace(/\/$/, '')}/${editId}` : backendUrl;
       const res = await fetch(url, {

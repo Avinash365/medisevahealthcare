@@ -53,6 +53,7 @@ class AppointmentController extends Controller
     public function index(Request $request)
     {
         $query = Appointment::query();
+
         // optional filtering by doctor and date for frontend slot blocking
         if ($request->has('doctor_id')) {
             $query->where('doctor_id', $request->get('doctor_id'));
@@ -60,7 +61,67 @@ class AppointmentController extends Controller
         if ($request->has('appointment_date')) {
             $query->whereDate('appointment_date', $request->get('appointment_date'));
         }
-        $q = $query->orderBy('created_at', 'desc')->limit(500)->get();
-        return response()->json(['success' => true, 'data' => $q], 200);
+
+        // search across patient name, mobile, city
+        if ($request->filled('search')) {
+            $s = $request->input('search');
+            $query->where(function($q) use ($s) {
+                $q->where('patient_name', 'like', "%{$s}%")
+                  ->orWhere('mobile_primary', 'like', "%{$s}%")
+                  ->orWhere('city', 'like', "%{$s}%");
+            });
+        }
+
+        // server-side payment filter: payment=full|partial|all
+        $payment = $request->input('payment', 'all');
+        if ($payment === 'full') {
+            $query->where(function($q) {
+                $q->whereRaw("LOWER(COALESCE(payment_status, '')) IN ('paid','full')")
+                  ->orWhereRaw('(COALESCE(payment_amount,0) >= COALESCE(fee,0) AND COALESCE(fee,0) > 0)');
+            });
+        } elseif ($payment === 'partial') {
+            $query->where(function($q) {
+                $q->whereRaw("LOWER(COALESCE(payment_status, '')) LIKE '%partial%'")
+                  ->orWhereRaw('(COALESCE(payment_amount,0) > 0 AND COALESCE(fee,0) > 0 AND COALESCE(payment_amount,0) < COALESCE(fee,0))');
+            });
+        } elseif ($payment === 'counter') {
+            // paid at counter: payment_mode or payment_gateway may indicate counter/cash, or explicit status
+            $query->where(function($q) {
+                $q->whereRaw("LOWER(COALESCE(payment_mode, '')) LIKE '%counter%'")
+                  ->orWhereRaw("LOWER(COALESCE(payment_gateway, '')) LIKE '%counter%'")
+                  ->orWhereRaw("LOWER(COALESCE(payment_mode, '')) LIKE '%cash%'")
+                  ->orWhereRaw("LOWER(COALESCE(payment_status, '')) IN ('paid','full')");
+            });
+        }
+
+        // server-side consult filter: consult=consulted|pending|all
+        $consult = $request->input('consult', 'all');
+        if ($consult === 'consulted') {
+            $query->where(function($q) {
+                $q->whereRaw("LOWER(COALESCE(status, '')) IN ('consulted','seen','completed')")
+                  ->orWhere('consulted', true);
+            });
+        } elseif ($consult === 'pending') {
+            $query->where(function($q) {
+                $q->whereRaw("LOWER(COALESCE(status, '')) NOT IN ('consulted','seen','completed')")
+                  ->where(function($qq) {
+                      $qq->whereNull('consulted')->orWhere('consulted', false);
+                  });
+            });
+        }
+
+        // pagination params
+        $perPage = (int) $request->input('per_page', 25);
+        $page = (int) $request->input('page', 1);
+
+        $p = $query->orderBy('created_at', 'desc')->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'success' => true,
+            'data' => $p->items(),
+            'total' => $p->total(),
+            'per_page' => $p->perPage(),
+            'current_page' => $p->currentPage(),
+        ], 200);
     }
 }

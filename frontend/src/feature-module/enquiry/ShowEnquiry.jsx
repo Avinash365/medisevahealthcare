@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getApiBase } from '../../utils/apiBase';
+import { Toast, Modal, Button } from 'react-bootstrap';
 import PrimeDataTable from '../../components/data-table';
 import TableTopHead from '../../components/table-top-head';
 
@@ -10,6 +11,12 @@ const ShowEnquiry = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVariant, setToastVariant] = useState('success');
+  const [showRemarkModal, setShowRemarkModal] = useState(false);
+  const [remarkValue, setRemarkValue] = useState('');
+  const [remarkRow, setRemarkRow] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => { fetchData({ search: searchQuery }); }, [rows, currentPage, searchQuery]);
@@ -34,19 +41,30 @@ const ShowEnquiry = () => {
     }
   };
 
-  const addRemark = async (row) => {
-    const r = window.prompt('Add / edit remark for this enquiry', row.remark || '');
-    if (r === null) return; // cancelled
+  const openRemarkModal = (row) => {
+    setRemarkRow(row);
+    setRemarkValue(row.remark || '');
+    setShowRemarkModal(true);
+  };
+
+  const saveRemark = async () => {
+    if (!remarkRow) return;
     try {
       const base = getApiBase();
-      const url = (base !== '' ? base : '') + '/api/enquiries/' + encodeURIComponent(row.id);
-      const res = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remark: r }) });
+      const url = (base !== '' ? base : '') + '/api/enquiries/' + encodeURIComponent(remarkRow.id);
+      const res = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remark: remarkValue }) });
       if (!res.ok) { const j = await res.json().catch(()=>null); throw new Error(j?.message || 'Failed to save remark'); }
-      // refresh
+      setShowRemarkModal(false);
+      setToastVariant('success');
+      setToastMessage('Remark saved');
+      setShowToast(true);
+      // refresh list
       fetchData({ search: searchQuery });
     } catch (err) {
       console.error('Save remark error', err);
-      alert('Failed to save remark: ' + err.message);
+      setToastVariant('danger');
+      setToastMessage('Failed to save remark: ' + err.message);
+      setShowToast(true);
     }
   };
 
@@ -74,7 +92,7 @@ const ShowEnquiry = () => {
     { header: 'Remark', field: 'remark' },
     { header: 'Action', field: 'action', body: (row) => (
       <div>
-        <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => addRemark(row)}>Remark</button>
+        <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => openRemarkModal(row)}>Remark</button>
       </div>
     ) }
   ];
@@ -82,6 +100,15 @@ const ShowEnquiry = () => {
   return (
     <div className="page-wrapper">
       <div className="content">
+        {/* Toast notification (top-right) */}
+        <div aria-live="polite" aria-atomic="true" className="position-fixed" style={{ top: 20, right: 20, zIndex: 1060 }}>
+          <Toast onClose={() => setShowToast(false)} show={showToast} bg={toastVariant} delay={3000} autohide>
+            <Toast.Header>
+              <strong className="me-auto">Notification</strong>
+            </Toast.Header>
+            <Toast.Body className={toastVariant === 'success' ? 'text-white' : ''}>{toastMessage}</Toast.Body>
+          </Toast>
+        </div>
         <div className="page-header d-flex align-items-center justify-content-between flex-wrap row-gap-3">
           <div>
             <h3 className="mb-0">Enquiries</h3>
@@ -91,7 +118,7 @@ const ShowEnquiry = () => {
         </div>
 
         <div className="card table-list-card">
-          <div className="card-body p-0">
+            <div className="card-body p-0">
             <div className="table-responsive">
               <PrimeDataTable
                 column={columns}
@@ -105,6 +132,22 @@ const ShowEnquiry = () => {
             </div>
           </div>
         </div>
+        {/* Remark modal */}
+        <Modal show={showRemarkModal} onHide={() => setShowRemarkModal(false)}>
+          <Modal.Header closeButton>
+            <Modal.Title>Edit Remark</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <div className="mb-3">
+              <label className="form-label">Remark</label>
+              <textarea className="form-control" rows={4} value={remarkValue} onChange={(e) => setRemarkValue(e.target.value)} />
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowRemarkModal(false)}>Cancel</Button>
+            <Button variant="primary" onClick={saveRemark}>Save</Button>
+          </Modal.Footer>
+        </Modal>
       </div>
     </div>
   );

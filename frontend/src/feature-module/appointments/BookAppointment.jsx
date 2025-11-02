@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Toast } from 'react-bootstrap';
 import { getUser } from '../../utils/auth';
+import { getApiBase } from '../../utils/apiBase';
 
 const BookAppointment = () => {
   const [doctors, setDoctors] = useState([]);
@@ -131,7 +132,7 @@ const BookAppointment = () => {
     // load doctors (onboarded)
     (async () => {
       try {
-  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE;
+  const APP_API_BASE = getApiBase();
         const res = await fetch(`${APP_API_BASE}/api/onboarding?per_page=1000`);
         if (!res.ok) throw new Error('Failed to load doctors');
         const json = await res.json();
@@ -383,8 +384,8 @@ const BookAppointment = () => {
       const slotsRaw = getAvailableTimeSlots(doc, form.appointmentDate);
       let slots = slotsRaw.slice();
       try {
-  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE;
-        const q = `${APP_API_BASE}/api/appointments?doctor_id=${encodeURIComponent(form.doctorId)}&appointment_date=${encodeURIComponent(form.appointmentDate)}`;
+  const APP_API_BASE = getApiBase();
+    const q = `${APP_API_BASE}/api/appointments?doctor_id=${encodeURIComponent(form.doctorId)}&appointment_date=${encodeURIComponent(form.appointmentDate)}`;
         const res = await fetch(q);
         if (res.ok) {
           const json = await res.json();
@@ -554,7 +555,7 @@ const BookAppointment = () => {
 
     // pay_on_counter or no payment required — submit appointment directly
     try {
-  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE;
+  const APP_API_BASE = getApiBase();
       const res = await fetch(`${APP_API_BASE}/api/appointments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

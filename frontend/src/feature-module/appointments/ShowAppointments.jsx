@@ -2,27 +2,36 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PrimeDataTable from '../../components/data-table';
 import TableTopHead from '../../components/table-top-head';
+import { getApiBase } from '../../utils/apiBase';
 
 const ShowAppointments = () => {
   const [data, setData] = useState([]);
   const [rows, setRows] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [paymentFilter, setPaymentFilter] = useState('all'); // all | full | partial
+  const [consultFilter, setConsultFilter] = useState('all'); // all | consulted | pending
+  const [searchText, setSearchText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [rows, currentPage, paymentFilter, consultFilter, searchQuery]);
 
   const fetchData = async () => {
     try {
-  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE;
+      const base = getApiBase();
+      let apptUrl = `${base}/api/appointments?per_page=${rows}&page=${currentPage}&payment=${encodeURIComponent(paymentFilter)}&consult=${encodeURIComponent(consultFilter)}`;
+      if (searchQuery && String(searchQuery).trim() !== '') {
+        apptUrl += `&search=${encodeURIComponent(searchQuery.trim())}`;
+      }
       const [resAppt, resOnb] = await Promise.all([
-        fetch(`${APP_API_BASE}/api/appointments`),
-        fetch(`${APP_API_BASE}/api/onboarding?per_page=1000`)
+        fetch(apptUrl),
+        fetch(`${base}/api/onboarding?per_page=1000`)
       ]);
       if (!resAppt.ok) throw new Error('Failed to load appointments');
       const apptJson = await resAppt.json();
-      let appts = apptJson?.data || apptJson || [];
+  let appts = apptJson?.data || apptJson || [];
 
       // build doctor map
       let doctorMap = {};
@@ -47,8 +56,9 @@ const ShowAppointments = () => {
         raw: a
       }));
 
-      setData(rowsData);
-      setTotalRecords(rowsData.length);
+  setData(rowsData);
+  setTotalRecords(apptJson?.total ?? rowsData.length);
+  setCurrentPage(apptJson?.current_page || currentPage);
     } catch (err) {
       console.error('ShowAppointments fetch error', err);
       setData([]);
@@ -84,6 +94,8 @@ const ShowAppointments = () => {
     return String(unsafe).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   };
 
+  
+
   const columns = [
     { header: 'Patient', field: 'patient' },
     { header: 'Mobile', field: 'mobile' },
@@ -104,6 +116,32 @@ const ShowAppointments = () => {
             <p className="text-muted mb-0">All recorded appointments</p>
           </div>
           <TableTopHead onPdf={exportPdf} onExcel={exportCsv} onRefresh={fetchData} />
+        </div>
+
+        {/* Filters (moved below header) */}
+        <div className="mb-3">
+          <div className="d-flex align-items-center gap-3 flex-wrap">
+            <div>
+              <div className="btn-group" role="group" aria-label="Payment filter">
+                <button type="button" className={`btn btn-sm ${paymentFilter==='all' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setPaymentFilter('all')}>All Payments</button>
+                <button type="button" className={`btn btn-sm ${paymentFilter==='full' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setPaymentFilter('full')}>Full Payment</button>
+                <button type="button" className={`btn btn-sm ${paymentFilter==='partial' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setPaymentFilter('partial')}>Partial Payment</button>
+                <button type="button" className={`btn btn-sm ${paymentFilter==='counter' ? 'btn-primary' : 'btn-outline-primary'}`} onClick={() => setPaymentFilter('counter')}>Paid on Counter</button>
+              </div>
+            </div>
+            <div>
+              <div className="btn-group" role="group" aria-label="Consult filter">
+                <button type="button" className={`btn btn-sm ${consultFilter==='all' ? 'btn-secondary' : 'btn-outline-secondary'}`} onClick={() => setConsultFilter('all')}>All</button>
+                <button type="button" className={`btn btn-sm ${consultFilter==='consulted' ? 'btn-secondary' : 'btn-outline-secondary'}`} onClick={() => setConsultFilter('consulted')}>Consulted</button>
+                <button type="button" className={`btn btn-sm ${consultFilter==='pending' ? 'btn-secondary' : 'btn-outline-secondary'}`} onClick={() => setConsultFilter('pending')}>Pending</button>
+              </div>
+            </div>
+            <div className="ms-auto d-flex gap-2 align-items-center">
+              <input type="text" className="form-control form-control-sm" style={{minWidth:250}} placeholder="Search patient name or phone" value={searchText} onChange={(e) => setSearchText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { setCurrentPage(1); setSearchQuery(searchText); } }} />
+              <button type="button" className="btn btn-sm btn-primary" onClick={() => { setCurrentPage(1); setSearchQuery(searchText); }}>Search</button>
+              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => { setSearchText(''); setSearchQuery(''); setCurrentPage(1); }}>Clear</button>
+            </div>
+          </div>
         </div>
 
         <div className="card table-list-card">
