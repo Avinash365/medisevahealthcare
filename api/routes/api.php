@@ -1,9 +1,8 @@
-
 <?php
-
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\EnquiryController;
 
 
 
@@ -17,6 +16,14 @@ Route::delete('/onboarding/{id}', [OnboardingController::class, 'destroy']);
 // Appointments (bookings) endpoint used by frontend
 Route::post('/appointments', [AppointmentController::class, 'store']);
 Route::get('/appointments', [AppointmentController::class, 'index']);
+
+// Enquiries
+Route::get('/enquiries', [EnquiryController::class, 'index']);
+Route::get('/enquiries/{id}', [EnquiryController::class, 'show']);
+Route::post('/enquiries', [EnquiryController::class, 'store']);
+Route::patch('/enquiries/{id}', [EnquiryController::class, 'update']);
+Route::put('/enquiries/{id}', [EnquiryController::class, 'update']);
+Route::delete('/enquiries/{id}', [EnquiryController::class, 'destroy']);
 
 // Payments
 use App\Http\Controllers\PaymentController;

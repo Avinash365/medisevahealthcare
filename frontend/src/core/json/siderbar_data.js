@@ -20,6 +20,18 @@ export const SidebarData = [
     { label: "Admin Dashboard", link: "/index" }]
 
   },
+
+  {
+    label: "Enquary",
+    icon: 'user-plus',
+    submenu: true,
+    showSubRoute: false,
+  submenuItems: [
+  { label: "Book Enquary", link: route.enquiryBook },
+  { label: "Show Enquary", link: route.enquiry }]
+
+  },
+
   {
     label: "Doctors Onboarding",
     icon: 'user-plus',

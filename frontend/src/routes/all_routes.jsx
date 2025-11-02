@@ -286,6 +286,8 @@ export const all_routes = {
   ,
   onboardingNew: "/onboarding/new",
   onboarding: "/onboarding",
+  enquiryBook: "/enquiry/book",
+  enquiry: "/enquiry",
   appointmentsBook: "/appointments/book",
   appointments: "/appointments"
 

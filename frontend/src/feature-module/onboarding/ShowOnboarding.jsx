@@ -116,7 +116,7 @@ const ShowOnboarding = () => {
       params.set('per_page', opts.per_page || rows);
       params.set('page', opts.page || currentPage);
 
-      const APP_API_BASE = Import.meta.env.VITE_APP_API_BASE;
+  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE;
       const res = await fetch(`${APP_API_BASE}/api/onboarding?` + params.toString());
       if (!res.ok) throw new Error('Failed to load');
       const json = await res.json();
@@ -188,7 +188,7 @@ const ShowOnboarding = () => {
     }
   ];
 
-  const APP_API_BASE = Import.meta.env.VITE_APP_API_BASE;
+  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE;
   const handleDelete = async () => {
     if (!deleteId) return;
     try {

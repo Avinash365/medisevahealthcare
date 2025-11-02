@@ -63,7 +63,7 @@ const NewOnboarding = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [editId, setEditId] = useState(null);
-  const APP_API_BASE = Import.meta.env.VITE_APP_API_BASE;
+  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE;
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);

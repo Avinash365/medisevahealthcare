@@ -15,7 +15,7 @@ const ShowAppointments = () => {
 
   const fetchData = async () => {
     try {
-      const APP_API_BASE = Import.meta.env.VITE_APP_API_BASE;
+  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE;
       const [resAppt, resOnb] = await Promise.all([
         fetch(`${APP_API_BASE}/api/appointments`),
         fetch(`${APP_API_BASE}/api/onboarding?per_page=1000`)
