@@ -5,6 +5,7 @@ import { getUser } from '../../utils/auth';
 import { getApiBase } from '../../utils/apiBase';
 
 const BookAppointment = () => {
+  const navigate = useNavigate();
   const [doctors, setDoctors] = useState([]);
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
@@ -12,8 +13,24 @@ const BookAppointment = () => {
   const [selectedCity, setSelectedCity] = useState('');
   const [filteredDoctors, setFilteredDoctors] = useState([]);
 
+  // UI & control state
+  const [section, setSection] = useState(1);
+  const [savedSections, setSavedSections] = useState({ 1: false, 2: false, 3: false });
+  const [clinicsForDoctor, setClinicsForDoctor] = useState([]);
+  const [availabilityMessage, setAvailabilityMessage] = useState('');
+  const [isAvailable, setIsAvailable] = useState(true);
+
+  // Toast state (kept for non-validation notifications)
+  const [showToast, setShowToast] = useState(false);
+  const [toastVariant, setToastVariant] = useState('success');
+  const [toastMessage, setToastMessage] = useState('');
+
+  // Inline field errors
+  const [errors, setErrors] = useState({});
+
   const [form, setForm] = useState({
     patientName: '',
+    patientAddress: '',
     age: '',
     guardianName: '',
     village: '',
@@ -32,42 +49,35 @@ const BookAppointment = () => {
     paymentAmount: '',
     paymentMode: '' // 'qr' | 'upi' | 'card' | 'cash'
   });
+  
+  // small helpers for address parsing / heuristics
+  const normalize = (v) => {
+    if (v === null || v === undefined) return null;
+    try { return String(v).trim(); } catch (e) { return null; }
+  };
 
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastVariant, setToastVariant] = useState('success');
-  const [availabilityMessage, setAvailabilityMessage] = useState('');
-  const [isAvailable, setIsAvailable] = useState(true);
-  const [clinicsForDoctor, setClinicsForDoctor] = useState([]);
-
-  const navigate = useNavigate();
-
-  // --- Address parsing helpers (used by multiple effects) ---
   const stripPostal = (s) => {
-    if (!s) return '';
-    return String(s).replace(/\b\d{4,6}\b/g, '').replace(/\bIndia\b/i, '').trim();
+    if (!s) return s || '';
+    // remove trailing 6-digit PINs and common postal words
+    return String(s).replace(/\bPIN\b[:\s]*\d{6}/i, '').replace(/\bPINCODE\b[:\s]*\d{6}/i, '').replace(/\b\d{6}\b/, '').trim();
   };
 
-  const normalize = (t) => t ? String(t).trim() : '';
-
-  const isLikelyState = (t) => {
-    if (!t) return false;
-    const s = String(t).trim();
-    if (/\d/.test(s)) return false;
-    if (/\b(street|road|rd|lane|ln|building|bldg|plot)\b/i.test(s)) return false;
-    return s.length > 1 && s.length < 40;
+  const isLikelyState = (s) => {
+    if (!s) return false;
+    const t = String(s).trim();
+    if (t.length < 3) return false;
+    // simple heuristic: contains letters and not mostly numeric
+    return /[A-Za-z]/.test(t);
   };
 
-  const isLikelyCity = (t) => {
-    if (!t) return false;
-    const s = String(t).trim();
-    if (/\d/.test(s)) return false;
-    if (/\b(street|road|rd|lane|ln|building|bldg|plot|near|opp|behind)\b/i.test(s)) return false;
-    return s.length > 1 && s.length < 60;
+  const isLikelyCity = (s) => {
+    if (!s) return false;
+    const t = String(s).trim();
+    if (t.length < 2) return false;
+    return /[A-Za-z]/.test(t);
   };
 
   const parseClinicAddress = (addr) => {
-    // returns { city, state, district, pin, landmark, parts }
     const result = { city: null, state: null, district: null, pin: null, landmark: null, parts: [] };
     if (!addr) return result;
     const raw = String(addr);
@@ -184,7 +194,7 @@ const BookAppointment = () => {
       return null;
     };
 
-    // agent name handled when submitting the form; nothing to do here
+    // (no-op) -- agent name is attached on final submit using getUser()
 
     const citiesForStateSet = new Set();
     doctors.forEach(d => {
@@ -480,31 +490,54 @@ const BookAppointment = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
+    // clear inline error for this field when changed
+    try { setErrors(prev => ({ ...prev, [name]: undefined })); } catch (e) {}
   };
 
   const validate = () => {
-    if (!selectedState) return 'Please select State';
-    if (!selectedCity) return 'Please select City';
-    if (!form.patientName) return 'Please enter patient name';
-    if (!form.mobilePrimary) return 'Please enter primary mobile number';
-    if (!form.appointmentDate) return 'Please select appointment date';
-    if (!form.doctorId) return 'Please select a doctor';
-    if (availableSlots && availableSlots.length > 0 && !form.timeSlot) return 'Please select a time slot';
-    // payment validation
-    if (!form.paymentType) return 'Please select payment option';
-    // Currently we only require a payment option to be selected.
-    // Detailed payment validation (amount, mode, full/partial) will be added later
-    // when integrating the payment gateway. For now just ensure paymentType is chosen above.
-    return null;
+    // full-form validation (used on final submit) — produce inline errors
+    const newErrors = {};
+    if (!selectedState) newErrors.state = 'Please select State';
+    if (!selectedCity) newErrors.city = 'Please select City';
+    if (!form.patientName) newErrors.patientName = 'Please enter patient name';
+    if (!form.mobilePrimary) newErrors.mobilePrimary = 'Please enter primary mobile number';
+    if (!form.appointmentDate) newErrors.appointmentDate = 'Please select appointment date';
+    if (!form.doctorId) newErrors.doctorId = 'Please select a doctor';
+    if (availableSlots && availableSlots.length > 0 && !form.timeSlot) newErrors.timeSlot = 'Please select a time slot';
+    if (!form.paymentType) newErrors.paymentType = 'Please select payment option';
+    if (form.paymentType === 'pay_to_mediseva' && (!form.paymentAmount || Number(form.paymentAmount) <= 0)) newErrors.paymentAmount = 'Please enter payment amount';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length ? (newErrors[Object.keys(newErrors)[0]] || 'Validation error') : null;
   };
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const validateSection = (sec) => {
+    // section-specific validation — set inline errors
+    const newErrors = {};
+    if (sec === 1) {
+      if (!form.patientAddress) newErrors.patientAddress = 'Please enter patient address';
+      if (!form.patientName) newErrors.patientName = 'Please enter patient name';
+      if (!form.mobilePrimary) newErrors.mobilePrimary = 'Please enter primary mobile number';
+    }
+    if (sec === 2) {
+      if (!selectedState) newErrors.state = 'Please select State';
+      if (!selectedCity) newErrors.city = 'Please select City';
+      if (!form.appointmentDate) newErrors.appointmentDate = 'Please select appointment date';
+      if (!form.doctorId) newErrors.doctorId = 'Please select a doctor';
+      if (availableSlots && availableSlots.length > 0 && !form.timeSlot) newErrors.timeSlot = 'Please select a time slot';
+    }
+    if (sec === 3) {
+      if (!form.paymentType) newErrors.paymentType = 'Please select payment option';
+      if (form.paymentType === 'pay_to_mediseva' && (!form.paymentAmount || Number(form.paymentAmount) <= 0)) newErrors.paymentAmount = 'Please enter payment amount';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length ? (newErrors[Object.keys(newErrors)[0]] || 'Validation error') : null;
+  };
+
+  const finalSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     const v = validate();
     if (v) {
-      setToastVariant('danger');
-      setToastMessage(v);
-      setShowToast(true);
+      // inline errors have been set by validate(); stop submission
       return;
     }
 
@@ -513,9 +546,8 @@ const BookAppointment = () => {
     if (doc) {
       const avail = checkDoctorAvailability(doc, form.appointmentDate);
       if (!avail.available) {
-        setToastVariant('danger');
-        setToastMessage(avail.message || 'Selected doctor is not available on that date');
-        setShowToast(true);
+        // show availability message as inline error under appointment date
+        setErrors(prev => ({ ...prev, appointmentDate: avail.message || 'Selected doctor is not available on that date' }));
         return;
       }
     }
@@ -525,6 +557,7 @@ const BookAppointment = () => {
       age: form.age || null,
       guardian_name: form.guardianName || null,
       address: {
+        line: form.patientAddress || null,
         village: form.village || null,
         block: form.block || null,
         landmark: form.landmark || null
@@ -536,8 +569,7 @@ const BookAppointment = () => {
       doctor_id: form.doctorId,
       clinic: (form.clinicIndex !== '' && clinicsForDoctor && clinicsForDoctor[Number(form.clinicIndex)]) ? clinicsForDoctor[Number(form.clinicIndex)] : null,
       state: selectedState,
-      city: selectedCity
-    ,
+      city: selectedCity,
       fee: (function(){ const doc = doctors.find(d => String(d.id) === String(form.doctorId)); return getDoctorFee(doc, form.clinicIndex); })(),
       time_slot: form.timeSlot || null,
       agent_name: (function(){ try { const u = getUser(); return u ? (u.name || u.email) : null; } catch(e){ return null; } })(),
@@ -547,15 +579,8 @@ const BookAppointment = () => {
       payment_status: form.paymentType === 'pay_to_mediseva' ? 'pending' : 'not_paid'
     };
 
-
-    // Currently we do not perform an external payment flow here.
-    // The payment gateway integration will be added later. For now we record the
-    // appointment (with payment fields included) and mark payment status as 'pending'
-    // for pay_to_mediseva or 'not_paid' for pay_on_counter.
-
-    // pay_on_counter or no payment required — submit appointment directly
     try {
-  const APP_API_BASE = getApiBase();
+      const APP_API_BASE = getApiBase();
       const res = await fetch(`${APP_API_BASE}/api/appointments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -566,6 +591,8 @@ const BookAppointment = () => {
         try { const json = await res.json(); msg = json?.message || msg; } catch (_) {}
         throw new Error(msg);
       }
+      // clear draft on success
+      try { localStorage.removeItem('appointment_draft'); } catch (e) {}
       setToastVariant('success');
       setToastMessage('Appointment booked successfully');
       setShowToast(true);
@@ -580,6 +607,58 @@ const BookAppointment = () => {
     }
   };
 
+  // Save the current section (validate and flag saved)
+  const saveSection = (sec) => {
+    const v = validateSection(sec);
+    if (v) {
+      // inline errors are already set by validateSection
+      return false;
+    }
+    setSavedSections(prev => ({ ...prev, [sec]: true }));
+    setToastVariant('success');
+    setToastMessage(`Section ${sec} saved`);
+    setShowToast(true);
+    // also persist partial draft automatically
+    try {
+      const payload = { form, selectedState, selectedCity, section, savedSections: { ...savedSections, [sec]: true } };
+      localStorage.setItem('appointment_draft', JSON.stringify(payload));
+    } catch (e) { /* ignore */ }
+    return true;
+  };
+
+  const saveDraft = () => {
+    try {
+      const payload = { form, selectedState, selectedCity, section, savedSections };
+      localStorage.setItem('appointment_draft', JSON.stringify(payload));
+      setToastVariant('success');
+      setToastMessage('Draft saved locally');
+      setShowToast(true);
+    } catch (e) {
+      setToastVariant('danger');
+      setToastMessage('Could not save draft');
+      setShowToast(true);
+    }
+  };
+
+  // resume draft on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('appointment_draft');
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p && typeof p === 'object') {
+          if (p.form) setForm(prev => ({ ...prev, ...p.form }));
+          if (p.selectedState) setSelectedState(p.selectedState);
+          if (p.selectedCity) setSelectedCity(p.selectedCity);
+          if (p.section) setSection(p.section);
+          if (p.savedSections) setSavedSections(p.savedSections);
+        }
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+  }, []);
+
   return (
     <div className="page-wrapper">
       <div className="content">
@@ -590,185 +669,208 @@ const BookAppointment = () => {
           </div>
         </div>
 
-        <form onSubmit={submit} className="card">
+        <form onSubmit={finalSubmit} className="card">
           <div className="card-body">
-            <div className="row g-3">
-              <div className="col-md-4">
-                <label className="form-label">State</label>
-                {states && states.length > 0 ? (
-                  <select className="form-select" value={selectedState} onChange={(e) => setSelectedState(e.target.value)}>
-                    <option value="">Select state</option>
-                    {states.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                ) : (
-                  <input className="form-control" value={selectedState} onChange={(e) => setSelectedState(e.target.value)} placeholder="Enter state" />
-                )}
-              </div>
-              <div className="col-md-4">
-                <label className="form-label">City</label>
-                {cities && cities.length > 0 ? (
-                  <select className="form-select" value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)}>
-                    <option value="">Select city</option>
-                    {cities.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                ) : (
-                  <input className="form-control" value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} placeholder="Enter city" />
-                )}
-              </div>
-              <div className="col-md-4">
-                <label className="form-label">Doctor</label>
-                <select className="form-select" name="doctorId" value={form.doctorId} onChange={handleChange}>
-                  <option value="">Select doctor</option>
-                  {filteredDoctors.map(d => (
-                    <option key={d.id} value={d.id}>{d.name} {d.doctor ? ` - ${d.doctor}` : ''}</option>
-                  ))}
-                </select>
-                {availabilityMessage && String(form.doctorId) !== '' && (
-                  <small className={isAvailable ? 'text-success' : 'text-danger'} style={{display: 'block', marginTop: 6}}>{availabilityMessage}</small>
-                )}
-                {/* Doctor fee display */}
-                {String(form.doctorId) !== '' && (() => {
-                  const doc = doctors.find(d => String(d.id) === String(form.doctorId));
-                  const fee = getDoctorFee(doc, form.clinicIndex);
-                  return (
-                    <small style={{display: 'block', marginTop: 6}} className="text-muted">Fee: {fee !== null && fee !== undefined && String(fee).trim() !== '' ? <>{typeof fee === 'number' ? `₹${fee}` : fee}</> : 'Not specified'}</small>
-                  );
-                })()}
-              </div>
-              
-              {clinicsForDoctor && clinicsForDoctor.length > 0 && (
+            {/* Step indicator */}
+            <div className="mb-3 d-flex gap-2">
+              <button type="button" className={`btn btn-sm ${section===1 ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => setSection(1)}>1. Personal {savedSections[1] ? '✓' : ''}</button>
+              <button type="button" className={`btn btn-sm ${section===2 ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { if (savedSections[1]) { setSection(2); } else { setToastMessage('Please save Personal details first'); setShowToast(true); } }}>2. Doctor {savedSections[2] ? '✓' : ''}</button>
+              <button type="button" className={`btn btn-sm ${section===3 ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { if (savedSections[2]) { setSection(3); } else { setToastMessage('Please save Doctor details first'); setShowToast(true); } }}>3. Payment {savedSections[3] ? '✓' : ''}</button>
+            </div>
+
+            {section === 1 && (
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label">Patient Name</label>
+                  <input name="patientName" value={form.patientName} onChange={handleChange} className="form-control" />
+                  {errors.patientName && <div className="text-danger small mt-1">{errors.patientName}</div>}
+                </div>
+                <div className="col-12">
+                  <label className="form-label">Patient Address</label>
+                  <textarea name="patientAddress" value={form.patientAddress} onChange={handleChange} className="form-control" rows={3} placeholder="Enter patient address (village, street, landmark, etc)" />
+                  {errors.patientAddress && <div className="text-danger small mt-1">{errors.patientAddress}</div>}
+                </div>
+                <div className="col-md-2">
+                  <label className="form-label">Age</label>
+                  <input name="age" value={form.age} onChange={handleChange} className="form-control" />
+                </div>
                 <div className="col-md-4">
-                  <label className="form-label">Clinic</label>
-                  <select className="form-select" name="clinicIndex" value={form.clinicIndex} onChange={handleChange}>
-                    <option value="">Select clinic</option>
-                    {clinicsForDoctor.map((c, i) => (
-                      <option key={i} value={i}>{c.label}{c.address ? ` - ${c.address.split('\n')[0]}` : ''}</option>
+                  <label className="form-label">Guardian Name</label>
+                  <input name="guardianName" value={form.guardianName} onChange={handleChange} className="form-control" />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Mobile (Primary)</label>
+                  <input name="mobilePrimary" value={form.mobilePrimary} onChange={handleChange} className="form-control" />
+                  {errors.mobilePrimary && <div className="text-danger small mt-1">{errors.mobilePrimary}</div>}
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Mobile (Alternate)</label>
+                  <input name="mobileAlternate" value={form.mobileAlternate} onChange={handleChange} className="form-control" />
+                </div>
+                <div className="col-12">
+                  <label className="form-label">Disease / Health Issue</label>
+                  <input name="disease" value={form.disease} onChange={handleChange} className="form-control" />
+                </div>
+              </div>
+            )}
+
+            {section === 2 && (
+              <div className="row g-3">
+                <div className="col-md-4">
+                  <label className="form-label">State</label>
+                  {states && states.length > 0 ? (
+                    <select className="form-select" value={selectedState} onChange={(e) => { setSelectedState(e.target.value); setErrors(prev => ({ ...prev, state: undefined })); }}>
+                      <option value="">Select state</option>
+                      {states.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  ) : (
+                    <input className="form-control" value={selectedState} onChange={(e) => setSelectedState(e.target.value)} placeholder="Enter state" />
+                  )}
+                  {errors.state && <div className="text-danger small mt-1">{errors.state}</div>}
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">City</label>
+                  {cities && cities.length > 0 ? (
+                    <select className="form-select" value={selectedCity} onChange={(e) => { setSelectedCity(e.target.value); setErrors(prev => ({ ...prev, city: undefined })); }}>
+                      <option value="">Select city</option>
+                      {cities.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  ) : (
+                    <input className="form-control" value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} placeholder="Enter city" />
+                  )}
+                  {errors.city && <div className="text-danger small mt-1">{errors.city}</div>}
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Doctor</label>
+                  <select className="form-select" name="doctorId" value={form.doctorId} onChange={handleChange}>
+                    <option value="">Select doctor</option>
+                    {filteredDoctors.map(d => (
+                      <option key={d.id} value={d.id}>{d.name} {d.doctor ? ` - ${d.doctor}` : ''}</option>
                     ))}
                   </select>
-                </div>
-              )}
-              <div className="col-md-6">
-                <label className="form-label">Patient Name</label>
-                <input name="patientName" value={form.patientName} onChange={handleChange} className="form-control" />
-              </div>
-              <div className="col-md-2">
-                <label className="form-label">Age</label>
-                <input name="age" value={form.age} onChange={handleChange} className="form-control" />
-              </div>
-              <div className="col-md-4">
-                <label className="form-label">Guardian Name</label>
-                <input name="guardianName" value={form.guardianName} onChange={handleChange} className="form-control" />
-              </div>
-
-              <div className="col-md-4">
-                <label className="form-label">Village</label>
-                <input name="village" value={form.village} onChange={handleChange} className="form-control" />
-              </div>
-              <div className="col-md-4">
-                <label className="form-label">Block</label>
-                <input name="block" value={form.block} onChange={handleChange} className="form-control" />
-              </div>
-              <div className="col-md-4">
-                <label className="form-label">Landmark</label>
-                <input name="landmark" value={form.landmark} onChange={handleChange} className="form-control" />
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Mobile (Primary)</label>
-                <input name="mobilePrimary" value={form.mobilePrimary} onChange={handleChange} className="form-control" />
-              </div>
-              <div className="col-md-6">
-                <label className="form-label">Mobile (Alternate)</label>
-                <input name="mobileAlternate" value={form.mobileAlternate} onChange={handleChange} className="form-control" />
-              </div>
-
-              <div className="col-12">
-                <label className="form-label">Disease / Health Issue</label>
-                <input name="disease" value={form.disease} onChange={handleChange} className="form-control" />
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Date of Appointment</label>
-                <input type="date" name="appointmentDate" value={form.appointmentDate} onChange={handleChange} className="form-control" />
-                {availabilityMessage && form.appointmentDate && (
-                  <small className={isAvailable ? 'text-success' : 'text-danger'} style={{display: 'block', marginTop: 6}}>{availabilityMessage}</small>
-                )}
-              </div>
-
-              {/* Time slot selector (if slots are available for chosen doctor/date) */}
-              <div className="col-md-6">
-                <label className="form-label">Time Slot</label>
-                {availableSlots && availableSlots.length > 0 ? (
-                  <select className="form-select" name="timeSlot" value={form.timeSlot} onChange={handleChange}>
-                    <option value="">Select time slot</option>
-                    {availableSlots.map((s, i) => (
-                      <option key={i} value={s}>{s}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input className="form-control" name="timeSlot" value={form.timeSlot} onChange={handleChange} placeholder={form.appointmentDate ? 'No time slots available' : 'Select date and doctor to see slots'} />
-                )}
-              </div>
-
-              {/* Payment options */}
-              <div className="col-12">
-                <label className="form-label">Payment</label>
-                <div className="d-flex gap-3 align-items-center mb-2">
-                  <div className="form-check">
-                    <input className="form-check-input" type="radio" id="pay_mediseva" name="paymentType" value="pay_to_mediseva" checked={form.paymentType === 'pay_to_mediseva'} onChange={(e) => setForm(prev => ({ ...prev, paymentType: e.target.value }))} />
-                    <label className="form-check-label" htmlFor="pay_mediseva">Pay to Mediseva</label>
-                  </div>
-                  <div className="form-check">
-                    <input className="form-check-input" type="radio" id="pay_counter" name="paymentType" value="pay_on_counter" checked={form.paymentType === 'pay_on_counter'} onChange={(e) => setForm(prev => ({ ...prev, paymentType: e.target.value, paymentChoice: '', paymentAmount: '', paymentMode: '' }))} />
-                    <label className="form-check-label" htmlFor="pay_counter">Pay on Counter</label>
-                  </div>
+                  {String(form.doctorId) !== '' && (() => {
+                    const doc = doctors.find(d => String(d.id) === String(form.doctorId));
+                    const fee = getDoctorFee(doc, form.clinicIndex);
+                    return (
+                      <small style={{display: 'block', marginTop: 6}} className="text-muted">Fee: {fee !== null && fee !== undefined && String(fee).trim() !== '' ? <>{typeof fee === 'number' ? `₹${fee}` : fee}</> : 'Not specified'}</small>
+                    );
+                  })()}
+                  {errors.doctorId && <div className="text-danger small mt-1">{errors.doctorId}</div>}
                 </div>
 
-                {form.paymentType === 'pay_to_mediseva' && (
-                  <div className="row g-2">
-                    <div className="col-md-4">
-                      <label className="form-label">Amount option</label>
-                      <div>
-                        <div className="form-check">
-                          <input className="form-check-input" type="radio" id="full_amt" name="paymentChoice" value="full" checked={form.paymentChoice === 'full'} onChange={(e) => {
-                            const doc = doctors.find(d => String(d.id) === String(form.doctorId));
-                            const fee = Number(getDoctorFee(doc, form.clinicIndex)) || 0;
-                            setForm(prev => ({ ...prev, paymentChoice: e.target.value, paymentAmount: String(fee) }));
-                          }} />
-                          <label className="form-check-label" htmlFor="full_amt">Full Amount</label>
-                        </div>
-                        <div className="form-check mt-1">
-                          <input className="form-check-input" type="radio" id="partial_amt" name="paymentChoice" value="partial" checked={form.paymentChoice === 'partial'} onChange={(e) => setForm(prev => ({ ...prev, paymentChoice: e.target.value, paymentAmount: '' }))} />
-                          <label className="form-check-label" htmlFor="partial_amt">Partial Amount (min 50%)</label>
+                {clinicsForDoctor && clinicsForDoctor.length > 0 && (
+                  <div className="col-md-6">
+                    <label className="form-label">Clinic</label>
+                    <select className="form-select" name="clinicIndex" value={form.clinicIndex} onChange={handleChange}>
+                      <option value="">Select clinic</option>
+                      {clinicsForDoctor.map((c, i) => (
+                        <option key={i} value={i}>{c.label}{c.address ? ` - ${c.address.split('\n')[0]}` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="col-md-6">
+                  <label className="form-label">Date of Appointment</label>
+                  <input type="date" name="appointmentDate" value={form.appointmentDate} onChange={handleChange} className="form-control" />
+                  {availabilityMessage && form.appointmentDate && (
+                    <small className={isAvailable ? 'text-success' : 'text-danger'} style={{display: 'block', marginTop: 6}}>{availabilityMessage}</small>
+                  )}
+                  {errors.appointmentDate && <div className="text-danger small mt-1">{errors.appointmentDate}</div>}
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Time Slot</label>
+                  {availableSlots && availableSlots.length > 0 ? (
+                    <select className="form-select" name="timeSlot" value={form.timeSlot} onChange={handleChange}>
+                      <option value="">Select time slot</option>
+                      {availableSlots.map((s, i) => (
+                        <option key={i} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input className="form-control" name="timeSlot" value={form.timeSlot} onChange={handleChange} placeholder={form.appointmentDate ? 'No time slots available' : 'Select date and doctor to see slots'} />
+                  )}
+                  {errors.timeSlot && <div className="text-danger small mt-1">{errors.timeSlot}</div>}
+                </div>
+              </div>
+            )}
+
+            {section === 3 && (
+              <div className="row g-3">
+                <div className="col-12">
+                  <label className="form-label">Payment</label>
+                  <div className="d-flex gap-3 align-items-center mb-2">
+                    <div className="form-check">
+                      <input className="form-check-input" type="radio" id="pay_mediseva" name="paymentType" value="pay_to_mediseva" checked={form.paymentType === 'pay_to_mediseva'} onChange={(e) => setForm(prev => ({ ...prev, paymentType: e.target.value }))} />
+                      <label className="form-check-label" htmlFor="pay_mediseva">Pay to Mediseva</label>
+                    </div>
+                    <div className="form-check">
+                      <input className="form-check-input" type="radio" id="pay_counter" name="paymentType" value="pay_on_counter" checked={form.paymentType === 'pay_on_counter'} onChange={(e) => setForm(prev => ({ ...prev, paymentType: e.target.value, paymentChoice: '', paymentAmount: '', paymentMode: '' }))} />
+                      <label className="form-check-label" htmlFor="pay_counter">Pay on Counter</label>
+                    </div>
+                  </div>
+
+                  {form.paymentType === 'pay_to_mediseva' && (
+                    <div className="row g-2">
+                      <div className="col-md-4">
+                        <label className="form-label">Amount option</label>
+                        <div>
+                          <div className="form-check">
+                            <input className="form-check-input" type="radio" id="full_amt" name="paymentChoice" value="full" checked={form.paymentChoice === 'full'} onChange={(e) => {
+                              const doc = doctors.find(d => String(d.id) === String(form.doctorId));
+                              const fee = Number(getDoctorFee(doc, form.clinicIndex)) || 0;
+                              setForm(prev => ({ ...prev, paymentChoice: e.target.value, paymentAmount: String(fee) }));
+                            }} />
+                            <label className="form-check-label" htmlFor="full_amt">Full Amount</label>
+                          </div>
+                          <div className="form-check mt-1">
+                            <input className="form-check-input" type="radio" id="partial_amt" name="paymentChoice" value="partial" checked={form.paymentChoice === 'partial'} onChange={(e) => setForm(prev => ({ ...prev, paymentChoice: e.target.value, paymentAmount: '' }))} />
+                            <label className="form-check-label" htmlFor="partial_amt">Partial Amount (min 50%)</label>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="col-md-3">
-                      <label className="form-label">Amount (₹)</label>
-                      <input className="form-control" name="paymentAmount" value={form.paymentAmount} onChange={(e) => setForm(prev => ({ ...prev, paymentAmount: e.target.value }))} placeholder="Enter amount" />
-                    </div>
+                      <div className="col-md-3">
+                        <label className="form-label">Amount (₹)</label>
+                        <input className="form-control" name="paymentAmount" value={form.paymentAmount} onChange={(e) => setForm(prev => ({ ...prev, paymentAmount: e.target.value }))} placeholder="Enter amount" />
+                        {errors.paymentAmount && <div className="text-danger small mt-1">{errors.paymentAmount}</div>}
+                      </div>
 
-                    <div className="col-md-5">
-                      <label className="form-label">Payment Mode</label>
-                      <select className="form-select" name="paymentMode" value={form.paymentMode} onChange={handleChange}>
-                        <option value="">Select mode</option>
-                        <option value="qr">QR Code</option>
-                        <option value="upi">UPI</option>
-                        <option value="card">Card</option>
-                      </select>
+                      <div className="col-md-5">
+                        <label className="form-label">Payment Mode</label>
+                        <select className="form-select" name="paymentMode" value={form.paymentMode} onChange={handleChange}>
+                          <option value="">Select mode</option>
+                          <option value="qr">QR Code</option>
+                          <option value="upi">UPI</option>
+                          <option value="card">Card</option>
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {form.paymentType === 'pay_on_counter' && (
-                  <div className="mt-2"><small className="text-muted">Payment will be collected at clinic counter.</small></div>
-                )}
+                  )}
+                  {form.paymentType === 'pay_on_counter' && (
+                    <div className="mt-2"><small className="text-muted">Payment will be collected at clinic counter.</small></div>
+                  )}
+                  {errors.paymentType && <div className="text-danger small mt-1">{errors.paymentType}</div>}
+                </div>
               </div>
+            )}
 
-            </div>
           </div>
-          <div className="card-footer text-end">
-            <button type="submit" className="btn btn-primary">Book Appointment</button>
+          <div className="card-footer d-flex justify-content-between align-items-center">
+            <div>
+              <button type="button" className="btn btn-outline-secondary me-2" onClick={saveDraft}>Save Draft</button>
+              <button type="button" className="btn btn-outline-primary" onClick={() => saveSection(section)}>Save Section</button>
+            </div>
+            <div>
+              <button type="button" className="btn btn-secondary me-2" onClick={() => setSection(s => Math.max(1, s-1))} disabled={section===1}>Previous</button>
+              {section < 3 && (
+                <button type="button" className="btn btn-primary" onClick={() => { const ok = saveSection(section); if (ok) setSection(s => Math.min(3, s+1)); }}>Next</button>
+              )}
+              {section === 3 && (
+                <button type="submit" className="btn btn-success">Book Appointment</button>
+              )}
+            </div>
           </div>
         </form>
 

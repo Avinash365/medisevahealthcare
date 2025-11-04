@@ -39,18 +39,18 @@ const initialState = {
   consultationFee: "",
   prescriptionValidity: "",
   scheduleOffline: {
-    Mon: "",
-    Tue: "",
-    Wed: "",
-    Thu: "",
-    Fri: "",
-    Sat: "",
-    Sun: ""
+    Mon: { type: 'none', value: '' },
+    Tue: { type: 'none', value: '' },
+    Wed: { type: 'none', value: '' },
+    Thu: { type: 'none', value: '' },
+    Fri: { type: 'none', value: '' },
+    Sat: { type: 'none', value: '' },
+    Sun: { type: 'none', value: '' }
   },
   scheduleOnline: {
     regular: false,
     pandemic: false,
-    times: { Mon: "", Tue: "", Wed: "", Thu: "", Fri: "", Sat: "", Sun: "" }
+    times: { Mon: { type: 'none', value: '' }, Tue: { type: 'none', value: '' }, Wed: { type: 'none', value: '' }, Thu: { type: 'none', value: '' }, Fri: { type: 'none', value: '' }, Sat: { type: 'none', value: '' }, Sun: { type: 'none', value: '' } }
   },
   maxDaysBeforeBooking: "",
   declaration: false
@@ -130,9 +130,33 @@ const NewOnboarding = () => {
             if (typeof s === 'string') {
               try { s = JSON.parse(s); } catch (e) { s = {}; }
             }
+            // convert loaded offline/online times (strings) into {type, value} objects used by UI
+            const days = Object.keys(initialState.scheduleOffline);
+            const toOfflineObj = (offlineRaw) => {
+              const out = {};
+              days.forEach(d => {
+                const rawVal = (offlineRaw && offlineRaw[d]) ? String(offlineRaw[d]).trim() : '';
+                if (!rawVal) out[d] = { type: 'none', value: '' };
+                else if (/\d{1,2}:\d{2}/.test(rawVal) || /-/.test(rawVal)) out[d] = { type: 'time', value: rawVal };
+                else out[d] = { type: 'note', value: rawVal };
+              });
+              return out;
+            };
+
+            const toOnlineObj = (onlineRaw) => {
+              const outTimes = {};
+              days.forEach(d => {
+                const rawVal = (onlineRaw && onlineRaw[d]) ? String(onlineRaw[d]).trim() : '';
+                if (!rawVal) outTimes[d] = { type: 'none', value: '' };
+                else if (/\d{1,2}:\d{2}/.test(rawVal) || /-/.test(rawVal)) outTimes[d] = { type: 'time', value: rawVal };
+                else outTimes[d] = { type: 'note', value: rawVal };
+              });
+              return outTimes;
+            };
+
             return {
-              offline: s.offline || initialState.scheduleOffline,
-              online: s.online || initialState.scheduleOnline
+              offline: toOfflineObj(s.offline || {}),
+              online: { ...initialState.scheduleOnline, times: toOnlineObj((s.online && s.online.times) ? s.online.times : (s.online || {})), regular: (s.online && s.online.regular) ? s.online.regular : initialState.scheduleOnline.regular, pandemic: (s.online && s.online.pandemic) ? s.online.pandemic : initialState.scheduleOnline.pandemic }
             };
           })();
 
@@ -257,18 +281,20 @@ const NewOnboarding = () => {
     setForm(prev => ({ ...prev, clinics: (prev.clinics || []).filter((_, i) => i !== index) }));
   };
 
-  const handleScheduleChange = (e, group, day) => {
-    const { value } = e.target;
-    if (group === "offline") {
-      setForm((prev) => ({
-        ...prev,
-        scheduleOffline: { ...prev.scheduleOffline, [day]: value }
-      }));
+  // update schedule type or value. For offline: store {type, value} per day. For online.times similarly.
+  const handleScheduleTypeChange = (group, day, type) => {
+    if (group === 'offline') {
+      setForm(prev => ({ ...prev, scheduleOffline: { ...prev.scheduleOffline, [day]: { ...(prev.scheduleOffline[day] || {}), type, value: (prev.scheduleOffline[day] && prev.scheduleOffline[day].value) || '' } } }));
     } else {
-      setForm((prev) => ({
-        ...prev,
-        scheduleOnline: { ...prev.scheduleOnline, times: { ...prev.scheduleOnline.times, [day]: value } }
-      }));
+      setForm(prev => ({ ...prev, scheduleOnline: { ...prev.scheduleOnline, times: { ...prev.scheduleOnline.times, [day]: { ...(prev.scheduleOnline.times[day] || {}), type, value: (prev.scheduleOnline.times[day] && prev.scheduleOnline.times[day].value) || '' } } } }));
+    }
+  };
+
+  const handleScheduleValueChange = (group, day, value) => {
+    if (group === 'offline') {
+      setForm(prev => ({ ...prev, scheduleOffline: { ...prev.scheduleOffline, [day]: { ...(prev.scheduleOffline[day] || {}), value } } }));
+    } else {
+      setForm(prev => ({ ...prev, scheduleOnline: { ...prev.scheduleOnline, times: { ...prev.scheduleOnline.times, [day]: { ...(prev.scheduleOnline.times[day] || {}), value } } } }));
     }
   };
 
@@ -329,6 +355,27 @@ const NewOnboarding = () => {
         };
       });
 
+      // build schedule payload converting {type,value} back to simple strings expected by backend
+      const buildSchedulePayload = () => {
+        const days = Object.keys(initialState.scheduleOffline);
+        const offlineOut = {};
+        days.forEach(d => {
+          const obj = form.scheduleOffline && form.scheduleOffline[d] ? form.scheduleOffline[d] : { type: 'none', value: '' };
+          offlineOut[d] = obj && obj.value ? obj.value : '';
+        });
+
+        const onlineTimesOut = {};
+        days.forEach(d => {
+          const obj = form.scheduleOnline && form.scheduleOnline.times && form.scheduleOnline.times[d] ? form.scheduleOnline.times[d] : { type: 'none', value: '' };
+          onlineTimesOut[d] = obj && obj.value ? obj.value : '';
+        });
+
+        return {
+          offline: offlineOut,
+          online: { ...form.scheduleOnline, times: onlineTimesOut }
+        };
+      };
+
       const payload = {
         name: form.doctorName,
         doctor: form.specialty || null,
@@ -341,7 +388,7 @@ const NewOnboarding = () => {
         // keep backward-compatible clinic_address (first clinic) and also send structured clinics array
         clinic_address: `${(form.clinics && form.clinics[0] && (form.clinics[0].clinicName || '') ? form.clinics[0].clinicName : form.clinicName) || ''}\n${(form.clinics && form.clinics[0] && form.clinics[0].address ? form.clinics[0].address : form.address) || ''}`.trim() || null,
   clinics: clinicsPayload.length ? clinicsPayload : null,
-        schedule: schedule,
+        schedule: buildSchedulePayload(),
         fee: form.consultationFee || null,
         declaration: !!form.declaration
       };
@@ -591,12 +638,32 @@ const NewOnboarding = () => {
               <div className="col-12">
                 <label className="form-label">Consultancy Schedule Offline (time or notes)</label>
                 <div className="row g-2">
-                  {Object.keys(form.scheduleOffline).map((day) => (
-                    <div className="col-md-3" key={day}>
-                      <label className="form-label">{day}</label>
-                      <input value={form.scheduleOffline[day]} onChange={(e) => handleScheduleChange(e, 'offline', day)} className="form-control" placeholder="e.g. 10:00-13:00" />
-                    </div>
-                  ))}
+                  {Object.keys(form.scheduleOffline).map((day) => {
+                    const obj = form.scheduleOffline && form.scheduleOffline[day] ? form.scheduleOffline[day] : { type: 'none', value: '' };
+                    return (
+                      <div className="col-md-3" key={day}>
+                        <label className="form-label">{day}</label>
+                        <select className="form-select mb-1" value={obj.type} onChange={(e) => handleScheduleTypeChange('offline', day, e.target.value)}>
+                          <option value="none">Not available</option>
+                          <option value="time">Time (e.g. 10:00-13:00)</option>
+                          <option value="custom">Custom time</option>
+                          <option value="note">Note / Info</option>
+                        </select>
+                        {obj.type === 'time' && (
+                          <input value={obj.value} onChange={(e) => handleScheduleValueChange('offline', day, e.target.value)} className="form-control" placeholder="e.g. 10:00-13:00" />
+                        )}
+                        {obj.type === 'custom' && (
+                          <div className="d-flex gap-2">
+                            <input type="time" className="form-control" value={(obj.value || '').split('-')[0] || ''} onChange={(e) => { const start = e.target.value || ''; const end = (obj.value || '').split('-')[1] || ''; handleScheduleValueChange('offline', day, start + (end ? '-' + end : '')); }} />
+                            <input type="time" className="form-control" value={(obj.value || '').split('-')[1] || ''} onChange={(e) => { const end = e.target.value || ''; const start = (obj.value || '').split('-')[0] || ''; handleScheduleValueChange('offline', day, (start ? start : '') + (start && end ? '-' : (start ? '-' : '')) + end); }} />
+                          </div>
+                        )}
+                        {obj.type === 'note' && (
+                          <input value={obj.value} onChange={(e) => handleScheduleValueChange('offline', day, e.target.value)} className="form-control" placeholder="Notes (e.g. Available after 5pm)" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -613,12 +680,32 @@ const NewOnboarding = () => {
                   </div>
                 </div>
                 <div className="row g-2">
-                  {Object.keys(form.scheduleOnline.times).map((day) => (
-                    <div className="col-md-3" key={day}>
-                      <label className="form-label">{day}</label>
-                      <input value={form.scheduleOnline.times[day]} onChange={(e) => handleScheduleChange(e, 'online', day)} className="form-control" placeholder="e.g. 18:00-20:00" />
-                    </div>
-                  ))}
+                  {Object.keys(form.scheduleOnline.times).map((day) => {
+                    const obj = form.scheduleOnline && form.scheduleOnline.times && form.scheduleOnline.times[day] ? form.scheduleOnline.times[day] : { type: 'none', value: '' };
+                    return (
+                      <div className="col-md-3" key={day}>
+                        <label className="form-label">{day}</label>
+                        <select className="form-select mb-1" value={obj.type} onChange={(e) => handleScheduleTypeChange('online', day, e.target.value)}>
+                          <option value="none">Not available</option>
+                          <option value="time">Time (e.g. 18:00-20:00)</option>
+                          <option value="custom">Custom time</option>
+                          <option value="note">Note / Info</option>
+                        </select>
+                        {obj.type === 'time' && (
+                          <input value={obj.value} onChange={(e) => handleScheduleValueChange('online', day, e.target.value)} className="form-control" placeholder="e.g. 18:00-20:00" />
+                        )}
+                        {obj.type === 'custom' && (
+                          <div className="d-flex gap-2">
+                            <input type="time" className="form-control" value={(obj.value || '').split('-')[0] || ''} onChange={(e) => { const start = e.target.value || ''; const end = (obj.value || '').split('-')[1] || ''; handleScheduleValueChange('online', day, start + (end ? '-' + end : '')); }} />
+                            <input type="time" className="form-control" value={(obj.value || '').split('-')[1] || ''} onChange={(e) => { const end = e.target.value || ''; const start = (obj.value || '').split('-')[0] || ''; handleScheduleValueChange('online', day, (start ? start : '') + (start && end ? '-' : (start ? '-' : '')) + end); }} />
+                          </div>
+                        )}
+                        {obj.type === 'note' && (
+                          <input value={obj.value} onChange={(e) => handleScheduleValueChange('online', day, e.target.value)} className="form-control" placeholder="Notes (e.g. Teleconsult only)" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

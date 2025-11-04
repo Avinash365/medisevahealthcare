@@ -17,6 +17,7 @@ const ShowOnboarding = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [deleteName, setDeleteName] = useState("");
   const navigate = useNavigate();
+  const APP_API_BASE = import.meta.env.VITE_APP_API_BASE || '';
 
   useEffect(() => {
     // fetch when page, rows, month or year change
@@ -189,7 +190,7 @@ const ShowOnboarding = () => {
     }
   ];
 
-  const APP_API_BASE = getApiBase();
+  
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
