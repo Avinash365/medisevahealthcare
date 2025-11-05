@@ -16,6 +16,9 @@ Route::delete('/onboarding/{id}', [OnboardingController::class, 'destroy']);
 // Appointments (bookings) endpoint used by frontend
 Route::post('/appointments', [AppointmentController::class, 'store']);
 Route::get('/appointments', [AppointmentController::class, 'index']);
+// allow updating appointment fields such as status/payment_status/consulted
+Route::patch('/appointments/{id}', [AppointmentController::class, 'update']);
+Route::put('/appointments/{id}', [AppointmentController::class, 'update']);
 
 // Enquiries
 Route::get('/enquiries', [EnquiryController::class, 'index']);

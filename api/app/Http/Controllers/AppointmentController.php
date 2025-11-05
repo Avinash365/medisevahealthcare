@@ -124,4 +124,51 @@ class AppointmentController extends Controller
             'current_page' => $p->currentPage(),
         ], 200);
     }
+
+    /**
+     * Update appointment fields (used for status/payment updates)
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            $data = $request->validate([
+                'status' => 'nullable|string|max:50',
+                'payment_status' => 'nullable|string|max:50',
+                'payment_amount' => 'nullable|numeric',
+                'payment_mode' => 'nullable|string|max:50',
+                'consulted' => 'nullable|boolean',
+            ]);
+
+            $appt = Appointment::find($id);
+            if (!$appt) {
+                return response()->json(['success' => false, 'error' => 'Appointment not found'], 404);
+            }
+
+            // only allow whitelisted fields to be updated
+            $allowed = ['status','payment_status','payment_amount','payment_mode','consulted'];
+            foreach ($allowed as $k) {
+                if (array_key_exists($k, $data)) {
+                    $appt->{$k} = $data[$k];
+                }
+            }
+
+            // convenience: if status indicates consultation, mark consulted flag
+            if (array_key_exists('status', $data) && $data['status']) {
+                $s = strtolower($data['status']);
+                if (in_array($s, ['consulted','seen','completed','checked'])) {
+                    $appt->consulted = true;
+                } elseif ($s === 'pending') {
+                    $appt->consulted = false;
+                }
+            }
+            $appt->save();
+
+            return response()->json(['success' => true, 'data' => $appt], 200);
+        } catch (\Illuminate\Validation\ValidationException $ve) {
+            return response()->json(['success' => false, 'errors' => $ve->errors()], 422);
+        } catch (\Exception $e) {
+            Log::error('Appointment update error: '.$e->getMessage());
+            return response()->json(['success' => false, 'error' => 'Failed to update appointment'], 500);
+        }
+    }
 }

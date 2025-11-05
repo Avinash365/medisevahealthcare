@@ -15,7 +15,8 @@ const BookAppointment = () => {
 
   // UI & control state
   const [section, setSection] = useState(1);
-  const [savedSections, setSavedSections] = useState({ 1: false, 2: false, 3: false });
+  // now: 1 => Doctor (includes patient selection), 2 => Payment
+  const [savedSections, setSavedSections] = useState({ 1: false, 2: false });
   const [clinicsForDoctor, setClinicsForDoctor] = useState([]);
   const [availabilityMessage, setAvailabilityMessage] = useState('');
   const [isAvailable, setIsAvailable] = useState(true);
@@ -27,6 +28,18 @@ const BookAppointment = () => {
 
   // Inline field errors
   const [errors, setErrors] = useState({});
+
+  // patient search & storage (local fallback)
+  const [patients, setPatients] = useState([]);
+  const [patientQuery, setPatientQuery] = useState('');
+  const [patientResults, setPatientResults] = useState([]);
+  const [showNewPatient, setShowNewPatient] = useState(false);
+  const [newPatient, setNewPatient] = useState({
+    name: '', guardianName: '', gender: '', dob: '', age: '', bloodGroup: '', maritalStatus: '',
+    photo: '', mobilePrimary: '', email: '', address: '', remarks: '', allergies: '',
+    tpa: '', tpaId: '', tpaValidity: '', nationalId: ''
+  });
+  const [selectedPatientProfile, setSelectedPatientProfile] = useState(null);
 
   const [form, setForm] = useState({
     patientName: '',
@@ -174,7 +187,28 @@ const BookAppointment = () => {
         setShowToast(true);
       }
     })();
+
+    // load locally stored patients (fallback if backend not available)
+    try {
+      const raw = localStorage.getItem('patients');
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) setPatients(arr);
+      }
+    } catch (e) {
+      // ignore
+    }
   }, []);
+
+  const handlePatientPhotoChange = (e) => {
+    const f = e?.target?.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setNewPatient(prev => ({ ...prev, photo: reader.result }));
+    };
+    reader.readAsDataURL(f);
+  };
 
   useEffect(() => {
     // populate cities when state changes
@@ -228,6 +262,72 @@ const BookAppointment = () => {
     });
     setFilteredDoctors(f);
   }, [selectedCity, selectedState, doctors]);
+
+  // patient search logic (client-side filter)
+  useEffect(() => {
+    const q = String(patientQuery || '').trim().toLowerCase();
+    if (!q) {
+      setPatientResults([]);
+      return;
+    }
+    const res = patients.filter(p => (p.name || '').toLowerCase().includes(q) || (p.mobilePrimary || '').toString().includes(q));
+    setPatientResults(res.slice(0, 10));
+  }, [patientQuery, patients]);
+
+  const selectPatient = (p) => {
+    if (!p) return;
+      setForm(prev => ({ ...prev,
+        patientName: p.name || '',
+        patientAddress: p.address || '',
+        mobilePrimary: p.mobilePrimary || '',
+        age: p.age || prev.age || '',
+        guardianName: p.guardianName || prev.guardianName || ''
+      }));
+    setPatientQuery(p.name || '');
+    setPatientResults([]);
+    // show profile when selecting
+    try { setSelectedPatientProfile(p); } catch (e) {}
+  };
+
+  const openPatientProfile = (p) => {
+    if (!p) return;
+    setSelectedPatientProfile(p);
+  };
+
+  const saveNewPatient = () => {
+    const name = String(newPatient.name || '').trim();
+    if (!name) {
+      setToastVariant('danger'); setToastMessage('Please enter patient name'); setShowToast(true); return;
+    }
+      const p = {
+        id: Date.now(),
+        name,
+        guardianName: newPatient.guardianName || '',
+        gender: newPatient.gender || '',
+        dob: newPatient.dob || '',
+        age: newPatient.age || '',
+        bloodGroup: newPatient.bloodGroup || '',
+        maritalStatus: newPatient.maritalStatus || '',
+        photo: newPatient.photo || '',
+        mobilePrimary: newPatient.mobilePrimary || '',
+        email: newPatient.email || '',
+        address: newPatient.address || '',
+        remarks: newPatient.remarks || '',
+        allergies: newPatient.allergies || '',
+        tpa: newPatient.tpa || '',
+        tpaId: newPatient.tpaId || '',
+        tpaValidity: newPatient.tpaValidity || '',
+        nationalId: newPatient.nationalId || ''
+      };
+    const next = [p].concat(patients || []);
+    setPatients(next);
+    try { localStorage.setItem('patients', JSON.stringify(next)); } catch (e) {}
+    // prefill form and close new patient UI
+    selectPatient(p);
+      setNewPatient({ name: '', guardianName: '', gender: '', dob: '', age: '', bloodGroup: '', maritalStatus: '', photo: '', mobilePrimary: '', email: '', address: '', remarks: '', allergies: '', tpa: '', tpaId: '', tpaValidity: '', nationalId: '' });
+    setShowNewPatient(false);
+    setToastVariant('success'); setToastMessage('Patient added'); setShowToast(true);
+  };
 
   // compute availability whenever doctor or date changes
   useEffect(() => {
@@ -497,13 +597,15 @@ const BookAppointment = () => {
   const validate = () => {
     // full-form validation (used on final submit) — produce inline errors
     const newErrors = {};
+    // doctor section (state/city/doctor/date/slot) — ensure patient fields are present too
     if (!selectedState) newErrors.state = 'Please select State';
     if (!selectedCity) newErrors.city = 'Please select City';
-    if (!form.patientName) newErrors.patientName = 'Please enter patient name';
+    if (!form.patientName) newErrors.patientName = 'Please select or add a patient';
     if (!form.mobilePrimary) newErrors.mobilePrimary = 'Please enter primary mobile number';
     if (!form.appointmentDate) newErrors.appointmentDate = 'Please select appointment date';
     if (!form.doctorId) newErrors.doctorId = 'Please select a doctor';
     if (availableSlots && availableSlots.length > 0 && !form.timeSlot) newErrors.timeSlot = 'Please select a time slot';
+    // payment checks
     if (!form.paymentType) newErrors.paymentType = 'Please select payment option';
     if (form.paymentType === 'pay_to_mediseva' && (!form.paymentAmount || Number(form.paymentAmount) <= 0)) newErrors.paymentAmount = 'Please enter payment amount';
     setErrors(newErrors);
@@ -513,19 +615,17 @@ const BookAppointment = () => {
   const validateSection = (sec) => {
     // section-specific validation — set inline errors
     const newErrors = {};
+    // new mapping: sec 1 => Doctor (includes patient presence checks), sec 2 => Payment
     if (sec === 1) {
-      if (!form.patientAddress) newErrors.patientAddress = 'Please enter patient address';
-      if (!form.patientName) newErrors.patientName = 'Please enter patient name';
+      if (!form.patientName) newErrors.patientName = 'Please select or add a patient';
       if (!form.mobilePrimary) newErrors.mobilePrimary = 'Please enter primary mobile number';
-    }
-    if (sec === 2) {
       if (!selectedState) newErrors.state = 'Please select State';
       if (!selectedCity) newErrors.city = 'Please select City';
       if (!form.appointmentDate) newErrors.appointmentDate = 'Please select appointment date';
       if (!form.doctorId) newErrors.doctorId = 'Please select a doctor';
       if (availableSlots && availableSlots.length > 0 && !form.timeSlot) newErrors.timeSlot = 'Please select a time slot';
     }
-    if (sec === 3) {
+    if (sec === 2) {
       if (!form.paymentType) newErrors.paymentType = 'Please select payment option';
       if (form.paymentType === 'pay_to_mediseva' && (!form.paymentAmount || Number(form.paymentAmount) <= 0)) newErrors.paymentAmount = 'Please enter payment amount';
     }
@@ -650,8 +750,11 @@ const BookAppointment = () => {
           if (p.form) setForm(prev => ({ ...prev, ...p.form }));
           if (p.selectedState) setSelectedState(p.selectedState);
           if (p.selectedCity) setSelectedCity(p.selectedCity);
-          if (p.section) setSection(p.section);
-          if (p.savedSections) setSavedSections(p.savedSections);
+          if (p.section) setSection(p.section > 2 ? 2 : p.section);
+          if (p.savedSections) {
+            const ss = p.savedSections;
+            setSavedSections({ 1: !!ss[1], 2: !!ss[2] });
+          }
         }
       }
     } catch (e) {
@@ -663,59 +766,170 @@ const BookAppointment = () => {
     <div className="page-wrapper">
       <div className="content">
         <div className="d-flex align-items-center justify-content-between mb-4">
-          <div>
+          <div className="d-flex align-items-center">
             <h3 className="mb-0">Book Appointment</h3>
+            <button type="button" className="btn btn-sm btn-outline-primary ms-3" onClick={() => setShowNewPatient(true)}>New Patient</button>
+          </div>
+          <div>
             <p className="text-muted mb-0">Select location, choose a doctor and provide patient details.</p>
           </div>
         </div>
+
+        {/* Inline New Patient form (header) */}
+        {showNewPatient && (
+          <div className="card mb-3">
+            <div className="card-body">
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <label className="form-label">Name <span className="text-danger">*</span></label>
+                  <input className="form-control" value={newPatient.name} onChange={(e) => setNewPatient(prev => ({ ...prev, name: e.target.value }))} />
+                </div>
+                
+                <div className="col-md-6">
+                  <label className="form-label">Guardian Name</label>
+                  <input className="form-control" value={newPatient.guardianName} onChange={(e) => setNewPatient(prev => ({ ...prev, guardianName: e.target.value }))} />
+                </div>
+
+                <div className="col-md-2">
+                  <label className="form-label">Gender</label>
+                  <select className="form-select" value={newPatient.gender} onChange={(e) => setNewPatient(prev => ({ ...prev, gender: e.target.value }))}>
+                    <option value="">Select</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div className="col-md-3">
+                  <label className="form-label">Date Of Birth</label>
+                  <input type="date" className="form-control" value={newPatient.dob} onChange={(e) => setNewPatient(prev => ({ ...prev, dob: e.target.value }))} />
+                </div>
+
+                <div className="col-md-3">
+                  <label className="form-label">Age</label>
+                  <input className="form-control" value={newPatient.age} onChange={(e) => setNewPatient(prev => ({ ...prev, age: e.target.value }))} placeholder="Years" />
+                </div>
+
+                <div className="col-md-2">
+                  <label className="form-label">Blood Group</label>
+                  <select className="form-select" value={newPatient.bloodGroup} onChange={(e) => setNewPatient(prev => ({ ...prev, bloodGroup: e.target.value }))}>
+                    <option value="">Select</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+
+                <div className="col-md-2">
+                  <label className="form-label">Marital Status</label>
+                  <select className="form-select" value={newPatient.maritalStatus} onChange={(e) => setNewPatient(prev => ({ ...prev, maritalStatus: e.target.value }))}>
+                    <option value="">Select</option>
+                    <option value="single">Single</option>
+                    <option value="married">Married</option>
+                    <option value="widowed">Widowed</option>
+                    <option value="divorced">Divorced</option>
+                  </select>
+                </div>
+
+                <div className="col-md-3">
+                  <label className="form-label">Patient Photo</label>
+                  <input type="file" accept="image/*" className="form-control" onChange={handlePatientPhotoChange} />
+                </div>
+
+                <div className="col-md-4">
+                  <label className="form-label">Phone</label>
+                  <input className="form-control" value={newPatient.mobilePrimary} onChange={(e) => setNewPatient(prev => ({ ...prev, mobilePrimary: e.target.value }))} />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Email</label>
+                  <input className="form-control" value={newPatient.email} onChange={(e) => setNewPatient(prev => ({ ...prev, email: e.target.value }))} />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Address</label>
+                  <input className="form-control" value={newPatient.address} onChange={(e) => setNewPatient(prev => ({ ...prev, address: e.target.value }))} />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Remarks</label>
+                  <input className="form-control" value={newPatient.remarks} onChange={(e) => setNewPatient(prev => ({ ...prev, remarks: e.target.value }))} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Any Known Allergies</label>
+                  <input className="form-control" value={newPatient.allergies} onChange={(e) => setNewPatient(prev => ({ ...prev, allergies: e.target.value }))} />
+                </div>
+
+                <div className="col-md-3">
+                  <label className="form-label">TPA</label>
+                  <select className="form-select" value={newPatient.tpa} onChange={(e) => setNewPatient(prev => ({ ...prev, tpa: e.target.value }))}>
+                    <option value="">Select</option>
+                    <option value="none">None</option>
+                    <option value="tpa1">TPA 1</option>
+                    <option value="tpa2">TPA 2</option>
+                  </select>
+                </div>
+                <div className="col-md-3">
+                  <label className="form-label">TPA ID</label>
+                  <input className="form-control" value={newPatient.tpaId} onChange={(e) => setNewPatient(prev => ({ ...prev, tpaId: e.target.value }))} />
+                </div>
+                <div className="col-md-3">
+                  <label className="form-label">TPA Validity</label>
+                  <input type="date" className="form-control" value={newPatient.tpaValidity} onChange={(e) => setNewPatient(prev => ({ ...prev, tpaValidity: e.target.value }))} />
+                </div>
+                <div className="col-md-3">
+                  <label className="form-label">National Identification Number</label>
+                  <input className="form-control" value={newPatient.nationalId} onChange={(e) => setNewPatient(prev => ({ ...prev, nationalId: e.target.value }))} />
+                </div>
+
+                <div className="col-12 d-flex justify-content-end">
+                  <button type="button" className="btn btn-primary me-2" onClick={saveNewPatient}>Save</button>
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => setShowNewPatient(false)}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={finalSubmit} className="card">
           <div className="card-body">
             {/* Step indicator */}
             <div className="mb-3 d-flex gap-2">
-              <button type="button" className={`btn btn-sm ${section===1 ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => setSection(1)}>1. Personal {savedSections[1] ? '✓' : ''}</button>
-              <button type="button" className={`btn btn-sm ${section===2 ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { if (savedSections[1]) { setSection(2); } else { setToastMessage('Please save Personal details first'); setShowToast(true); } }}>2. Doctor {savedSections[2] ? '✓' : ''}</button>
-              <button type="button" className={`btn btn-sm ${section===3 ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { if (savedSections[2]) { setSection(3); } else { setToastMessage('Please save Doctor details first'); setShowToast(true); } }}>3. Payment {savedSections[3] ? '✓' : ''}</button>
+              <button type="button" className={`btn btn-sm ${section===1 ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => setSection(1)}>1. Doctor {savedSections[1] ? '✓' : ''}</button>
+              <button type="button" className={`btn btn-sm ${section===2 ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { if (savedSections[1]) { setSection(2); } else { setToastMessage('Please save Doctor details first'); setShowToast(true); } }}>2. Payment {savedSections[2] ? '✓' : ''}</button>
             </div>
+
+            {/* Personal details removed — patient info is selected via Search Patient or New Patient in header */}
 
             {section === 1 && (
               <div className="row g-3">
-                <div className="col-md-6">
-                  <label className="form-label">Patient Name</label>
-                  <input name="patientName" value={form.patientName} onChange={handleChange} className="form-control" />
-                  {errors.patientName && <div className="text-danger small mt-1">{errors.patientName}</div>}
-                </div>
                 <div className="col-12">
-                  <label className="form-label">Patient Address</label>
-                  <textarea name="patientAddress" value={form.patientAddress} onChange={handleChange} className="form-control" rows={3} placeholder="Enter patient address (village, street, landmark, etc)" />
-                  {errors.patientAddress && <div className="text-danger small mt-1">{errors.patientAddress}</div>}
+                  <label className="form-label">Search Patient</label>
+                  <div style={{position: 'relative'}}>
+                    <input className="form-control" value={patientQuery} onChange={(e) => setPatientQuery(e.target.value)} placeholder="Search by name or mobile" />
+                    {patientResults && patientResults.length > 0 && (
+                      <div className="list-group position-absolute" style={{zIndex: 1050, width: '100%'}}>
+                        {patientResults.map(p => (
+                          <div key={p.id} className="list-group-item d-flex justify-content-between align-items-start">
+                            <div style={{flex: 1, cursor: 'pointer'}} onClick={() => selectPatient(p)}>
+                              <div><strong>{p.name}</strong> {p.mobilePrimary ? <small className="text-muted"> - {p.mobilePrimary}</small> : null}</div>
+                              {p.address ? <div className="small text-muted">{p.address}</div> : null}
+                            </div>
+                            <div className="ms-2 d-flex gap-1">
+                              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => openPatientProfile(p)}>Profile</button>
+                              <button type="button" className="btn btn-sm btn-primary" onClick={() => selectPatient(p)}>Select</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="small text-muted mt-1">If patient not found, click <button type="button" className="btn btn-link p-0" onClick={() => setShowNewPatient(true)}>New Patient</button> to add.</div>
+                  {/* profile popup will show as modal when requested */}
                 </div>
-                <div className="col-md-2">
-                  <label className="form-label">Age</label>
-                  <input name="age" value={form.age} onChange={handleChange} className="form-control" />
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label">Guardian Name</label>
-                  <input name="guardianName" value={form.guardianName} onChange={handleChange} className="form-control" />
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label">Mobile (Primary)</label>
-                  <input name="mobilePrimary" value={form.mobilePrimary} onChange={handleChange} className="form-control" />
-                  {errors.mobilePrimary && <div className="text-danger small mt-1">{errors.mobilePrimary}</div>}
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label">Mobile (Alternate)</label>
-                  <input name="mobileAlternate" value={form.mobileAlternate} onChange={handleChange} className="form-control" />
-                </div>
-                <div className="col-12">
-                  <label className="form-label">Disease / Health Issue</label>
-                  <input name="disease" value={form.disease} onChange={handleChange} className="form-control" />
-                </div>
-              </div>
-            )}
-
-            {section === 2 && (
-              <div className="row g-3">
                 <div className="col-md-4">
                   <label className="form-label">State</label>
                   {states && states.length > 0 ? (
@@ -796,7 +1010,7 @@ const BookAppointment = () => {
               </div>
             )}
 
-            {section === 3 && (
+            {section === 2 && (
               <div className="row g-3">
                 <div className="col-12">
                   <label className="form-label">Payment</label>
@@ -864,10 +1078,10 @@ const BookAppointment = () => {
             </div>
             <div>
               <button type="button" className="btn btn-secondary me-2" onClick={() => setSection(s => Math.max(1, s-1))} disabled={section===1}>Previous</button>
-              {section < 3 && (
-                <button type="button" className="btn btn-primary" onClick={() => { const ok = saveSection(section); if (ok) setSection(s => Math.min(3, s+1)); }}>Next</button>
+              {section < 2 && (
+                <button type="button" className="btn btn-primary" onClick={() => { const ok = saveSection(section); if (ok) setSection(s => Math.min(2, s+1)); }}>Next</button>
               )}
-              {section === 3 && (
+              {section === 2 && (
                 <button type="submit" className="btn btn-success">Book Appointment</button>
               )}
             </div>
@@ -875,6 +1089,48 @@ const BookAppointment = () => {
         </form>
 
         {/* Toast */}
+        {/* Patient profile modal (sweet popup) */}
+        {selectedPatientProfile && (
+          <div style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center'}} onClick={() => setSelectedPatientProfile(null)}>
+            <div role="dialog" aria-modal="true" className="card" style={{width: 860, maxWidth: '95%', cursor: 'auto'}} onClick={(e) => e.stopPropagation()}>
+              <div className="card-header d-flex justify-content-between align-items-center">
+                <h5 className="mb-0">Patient Profile</h5>
+                <button type="button" className="btn-close" aria-label="Close" onClick={() => setSelectedPatientProfile(null)} />
+              </div>
+              <div className="card-body d-flex gap-3">
+                <div style={{width: 160}}>
+                  {selectedPatientProfile.photo ? (
+                    <img src={selectedPatientProfile.photo} style={{width: '100%', height: 160, objectFit: 'cover', borderRadius: 6}} alt="patient" />
+                  ) : (
+                    <div style={{width: '100%', height: 160, background: '#f1f1f1', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6}}>No photo</div>
+                  )}
+                </div>
+                <div style={{flex: 1}}>
+                  <h4 className="mb-1">{selectedPatientProfile.name}</h4>
+                  <div className="small text-muted mb-2">{selectedPatientProfile.guardianName ? `Guardian: ${selectedPatientProfile.guardianName}` : ''}</div>
+
+                  <div className="row">
+                    <div className="col-md-6"><strong>Phone:</strong> {selectedPatientProfile.mobilePrimary || '-'}</div>
+                    <div className="col-md-6"><strong>Email:</strong> {selectedPatientProfile.email || '-'}</div>
+                    <div className="col-md-6"><strong>Age / DOB:</strong> {selectedPatientProfile.age || '-'} {selectedPatientProfile.dob ? ` / ${selectedPatientProfile.dob}` : ''}</div>
+                    <div className="col-md-6"><strong>Gender:</strong> {selectedPatientProfile.gender || '-'}</div>
+                    <div className="col-md-6"><strong>Blood Group:</strong> {selectedPatientProfile.bloodGroup || '-'}</div>
+                    <div className="col-md-6"><strong>Marital Status:</strong> {selectedPatientProfile.maritalStatus || '-'}</div>
+                    <div className="col-12 mt-2"><strong>Address:</strong> {selectedPatientProfile.address || '-'}</div>
+                    <div className="col-12 mt-2"><strong>Allergies:</strong> {selectedPatientProfile.allergies || '-'}</div>
+                  </div>
+                </div>
+                <div style={{width: 180}}>
+                  <div className="d-flex flex-column gap-2">
+                    <button type="button" className="btn btn-primary" onClick={() => { selectPatient(selectedPatientProfile); setToastVariant('success'); setToastMessage('Patient loaded into form'); setShowToast(true); setSelectedPatientProfile(null); }}>Use for Appointment</button>
+                            {/* Copy JSON removed */}
+                    <button type="button" className="btn btn-outline-danger" onClick={() => { setSelectedPatientProfile(null); }}>Close</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div aria-live="polite" aria-atomic="true" className="position-fixed" style={{ top: 20, right: 20, zIndex: 1060 }}>
           <Toast onClose={() => setShowToast(false)} show={showToast} bg={toastVariant} delay={3500} autohide>
             <Toast.Header>
