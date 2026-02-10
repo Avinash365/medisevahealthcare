@@ -49,7 +49,8 @@ export const SidebarData = [
     showSubRoute: false,
     submenuItems: [
     { label: "Book Appointment", link: "/appointments/book" },
-    { label: "Show Appointment", link: "/appointments" }]
+    { label: "Show Appointment", link: "/appointments" },
+    { label: "Appointment Validation", link: "/appointments/validation" }]
 
   },
   {

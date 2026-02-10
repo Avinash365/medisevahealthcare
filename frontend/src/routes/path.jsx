@@ -6,6 +6,8 @@ import { Units } from "../feature-module/inventory/units";
 import StoreList from "../feature-module/people/store-list";
 import Warehouse from "../feature-module/people/warehouse";
 
+const AppointmentValidation = lazy(() => import("../feature-module/appointments/AppointmentValidation"));
+
 import Apexchart from "../feature-module/uiinterface/charts/apexcharts";
 import ChartJs from "../feature-module/uiinterface/charts/chartjs";
 import FloatingLabel from "../feature-module/uiinterface/forms/formelements/layouts/floating-label";
@@ -2274,6 +2276,48 @@ export const authRoutes = [
   name: "tablebasic",
   element: <TablesBasic />,
   route: Route
+},
+{
+    id: 1001,
+    path: routes.enquiryBook,
+    element: <BookEnquiry />,
+    route: Route
+},
+{
+    id: 1002,
+    path: routes.enquiry,
+    element: <ShowEnquiry />,
+    route: Route
+},
+{
+    id: 1003,
+    path: routes.onboardingNew,
+    element: <NewOnboarding />,
+    route: Route
+},
+{
+    id: 1004,
+    path: routes.onboarding,
+    element: <ShowOnboarding />,
+    route: Route
+},
+{
+    id: 1005,
+    path: routes.appointmentsBook,
+    element: <BookAppointment />,
+    route: Route
+},
+{
+    id: 1006,
+    path: routes.appointments,
+    element: <ShowAppointments />,
+    route: Route
+},
+{
+    id: 1007,
+    path: routes.appointmentValidation,
+    element: <AppointmentValidation />,
+    route: Route
 }];
 
 

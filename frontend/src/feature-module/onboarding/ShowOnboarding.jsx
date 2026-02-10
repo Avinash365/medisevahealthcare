@@ -109,6 +109,30 @@ const ShowOnboarding = () => {
       .replace(/'/g, '&#039;');
   };
 
+  const getCityState = (item) => {
+    // 1. Try to get explicit city/state from new 'clinics' JSON
+    let clinics = item.clinics;
+    if (typeof clinics === 'string') {
+      try { clinics = JSON.parse(clinics); } catch (e) { clinics = []; }
+    }
+    if (Array.isArray(clinics) && clinics.length > 0) {
+      const c = clinics.find(x => x.city || x.state);
+      if (c) {
+        return [c.city, c.state].filter(Boolean).join(', ');
+      }
+    }
+    // 2. Fallback: parse legacy 'clinic_address' which is often "Name\nAddress"
+    if (item.clinic_address) {
+      const parts = String(item.clinic_address).split('\n');
+      if (parts.length > 1) {
+          // Join all parts after the first one (which is the clinic name)
+          return parts.slice(1).join(', ');
+      }
+      return item.clinic_address;
+    }
+    return '-';
+  };
+
   const fetchData = async (opts = {}) => {
     try {
       const params = new URLSearchParams();
@@ -129,7 +153,7 @@ const ShowOnboarding = () => {
         doctor_name: $displayName(item),
         qualification: parseQualifications(item.qualifications),
         specialty: item.doctor || item.department || '-',
-        city: item.clinic_address || '-',
+        city: getCityState(item),
         agent: item.agent_name || '-',
         raw: item
       }));

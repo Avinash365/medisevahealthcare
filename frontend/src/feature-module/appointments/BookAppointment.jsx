@@ -928,7 +928,13 @@ const BookAppointment = () => {
                     )}
                   </div>
                   <div className="small text-muted mt-1">If patient not found, click <button type="button" className="btn btn-link p-0" onClick={() => setShowNewPatient(true)}>New Patient</button> to add.</div>
+                  {errors.patientName && <div className="text-danger small mt-1">{errors.patientName}</div>}
                   {/* profile popup will show as modal when requested */}
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Phone</label>
+                  <input className="form-control" name="mobilePrimary" value={form.mobilePrimary} onChange={handleChange} placeholder="Patient Phone" />
+                  {errors.mobilePrimary && <div className="text-danger small mt-1">{errors.mobilePrimary}</div>}
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">State</label>

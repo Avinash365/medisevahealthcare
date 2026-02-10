@@ -289,6 +289,7 @@ export const all_routes = {
   enquiryBook: "/enquiry/book",
   enquiry: "/enquiry",
   appointmentsBook: "/appointments/book",
-  appointments: "/appointments"
+  appointments: "/appointments",
+  appointmentValidation: "/appointments/validation"
 
 };
