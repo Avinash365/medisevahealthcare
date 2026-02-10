@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import PrimeDataTable from '../../components/data-table';
 import TableTopHead from '../../components/table-top-head';
 import { getApiBase } from '../../utils/apiBase';
+import WhatsAppModal from '../../components/WhatsAppModal';
 
 const ShowAppointments = () => {
   const [data, setData] = useState([]);
@@ -10,6 +11,8 @@ const ShowAppointments = () => {
   const [selectedPatientProfile, setSelectedPatientProfile] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [editPatient, setEditPatient] = useState(null);
+  const [whatsAppRecipient, setWhatsAppRecipient] = useState({ name: '', mobile: '' });
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [rows, setRows] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -72,6 +75,11 @@ const ShowAppointments = () => {
           <div className="btn-group" role="group" aria-label="status-actions">
             <button type="button" className={`btn btn-sm ${ (a.payment_status||a.status) === 'pending' ? 'btn-warning' : 'btn-outline-secondary' }`} onClick={() => updateAppointmentStatus(a.id, 'pending')}>Pending</button>
             <button type="button" className={`btn btn-sm ${ (a.payment_status||a.status) === 'consulted' ? 'btn-success' : 'btn-outline-secondary' }`} onClick={() => updateAppointmentStatus(a.id, 'consulted')}>Consulted</button>
+            <button type="button" className="btn btn-sm btn-success" 
+              onClick={() => { setWhatsAppRecipient({ name: a.patient_name, mobile: a.mobile_primary }); setShowWhatsApp(true); }} 
+              title="Send WhatsApp">
+              <i className="fa fa-whatsapp"></i> WA
+            </button>
           </div>
         ),
         raw: a
@@ -393,6 +401,12 @@ const ShowAppointments = () => {
           </div>
         )}
       </div>
+      <WhatsAppModal 
+        show={showWhatsApp} 
+        onHide={() => setShowWhatsApp(false)} 
+        recipientName={whatsAppRecipient.name} 
+        mobileNumber={whatsAppRecipient.mobile} 
+      />
     </div>
   );
 };

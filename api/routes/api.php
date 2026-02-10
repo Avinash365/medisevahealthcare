@@ -40,3 +40,7 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware(\App\Http\Middleware\ApiTokenAuth::class);
 
 
+
+// WhatsApp
+use App\Http\Controllers\WhatsAppController;
+Route::post('/whatsapp/send', [WhatsAppController::class, 'send']);

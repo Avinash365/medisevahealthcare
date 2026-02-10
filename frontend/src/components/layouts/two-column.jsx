@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 import { customer15, logo, logoSmall, logoWhite } from "../../utils/imagepath";
 import { all_routes } from "../../routes/all_routes";
