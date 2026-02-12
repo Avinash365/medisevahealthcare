@@ -3,11 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Models\Appointment;
+use App\Models\User;
+use App\Models\Onboarding;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use App\Services\TwilioService;
 
 class AppointmentController extends Controller
 {
+    protected $twilioService;
+
+    public function __construct(TwilioService $twilioService)
+    {
+        $this->twilioService = $twilioService;
+    }
+
     /**
      * Store a new appointment.
      */
@@ -37,6 +47,61 @@ class AppointmentController extends Controller
             ]);
 
             $appointment = Appointment::create($data);
+
+            // Send WhatsApp notification
+            try {
+                $docName = 'Doctor';
+                if ($appointment->doctor_id) {
+                    $docUser = Onboarding::find($appointment->doctor_id);
+                    if ($docUser) {
+                        $docName = $docUser->name;
+                    }
+                }
+                
+                $clinicName = 'Mediseva Healthcare';
+                $clinicAddr = '';
+                if (!empty($appointment->clinic) && is_array($appointment->clinic)) {
+                    $clinicName = $appointment->clinic['clinic_name'] ?? ($appointment->clinic['name'] ?? 'Mediseva Clinic');
+                    $clinicAddr = $appointment->clinic['clinic_address'] ?? ($appointment->clinic['address'] ?? '');
+                }
+
+                $msg  = "Hello {$appointment->patient_name},\n";
+                $msg .= "Your appointment is confirmed! ✅\n\n";
+                $msg .= "👨‍⚕️ Doctor: {$docName}\n";
+                $msg .= "📅 Date: {$appointment->appointment_date->format('d M Y')}\n";
+                if ($appointment->time_slot) {
+                    $msg .= "⏰ Time: {$appointment->time_slot}\n";
+                }
+                $msg .= "🏥 Clinic: {$clinicName}\n";
+                if ($clinicAddr) {
+                    $msg .= "📍 Address: {$clinicAddr}\n";
+                } elseif ($appointment->city) {
+                     $msg .= "📍 City: {$appointment->city}\n";
+                }
+                
+                // Fee & Payment Details
+                if ($appointment->fee) {
+                    $msg .= "💰 Fee: ₹{$appointment->fee}\n";
+                }
+                if ($appointment->payment_type) {
+                     if ($appointment->payment_type === 'pay_on_counter') {
+                         $msg .= "💳 Payment: Pay on Counter\n";
+                     } else {
+                         $pStatus = $appointment->payment_status ?? 'Pending';
+                         $msg .= "💳 Payment: {$pStatus}";
+                         if ($appointment->payment_amount > 0) {
+                            $msg .= " (₹{$appointment->payment_amount} paid)";
+                         }
+                         $msg .= "\n";
+                     }
+                }
+                
+                $msg .= "\nThank you for choosing Mediseva Healthcare! 🙏";
+
+                $this->twilioService->sendWhatsAppMessage($appointment->mobile_primary, $msg);
+            } catch (\Exception $e) {
+                Log::error('WhatsApp Auto-Send Error: ' . $e->getMessage());
+            }
 
             return response()->json(['success' => true, 'data' => $appointment], 201);
         } catch (\Illuminate\Validation\ValidationException $ve) {

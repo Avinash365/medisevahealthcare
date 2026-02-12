@@ -263,15 +263,78 @@ const BookAppointment = () => {
     setFilteredDoctors(f);
   }, [selectedCity, selectedState, doctors]);
 
-  // patient search logic (client-side filter)
+  // patient search logic (client-side + backend)
   useEffect(() => {
     const q = String(patientQuery || '').trim().toLowerCase();
     if (!q) {
       setPatientResults([]);
       return;
     }
-    const res = patients.filter(p => (p.name || '').toLowerCase().includes(q) || (p.mobilePrimary || '').toString().includes(q));
-    setPatientResults(res.slice(0, 10));
+    
+    // Local matches
+    const localRes = patients.filter(p => (p.name || '').toLowerCase().includes(q) || (p.mobilePrimary || '').toString().includes(q));
+
+    let isActive = true;
+    const timer = setTimeout(async () => {
+      try {
+        const APP_API_BASE = getApiBase();
+        const res = await fetch(`${APP_API_BASE}/api/appointments?search=${encodeURIComponent(q)}&per_page=50`);
+        if (res.ok && isActive) {
+          const json = await res.json();
+          const list = json.data || [];
+          
+          const backendPatients = [];
+          const seenMap = new Set();
+          
+          list.forEach(a => {
+            const mobile = a.mobile_primary || '';
+            const name = a.patient_name || '';
+            const key = mobile + '__' + name;
+            
+            if (name && !seenMap.has(key)) {
+              seenMap.add(key);
+              // extract address string
+              let addrStr = '';
+              if (a.address && typeof a.address === 'object') addrStr = a.address.line || '';
+              else if (typeof a.address === 'string') addrStr = a.address;
+
+              backendPatients.push({
+                id: 'remote_' + a.id,
+                name: name,
+                mobilePrimary: mobile,
+                address: addrStr,
+                age: a.age,
+                guardianName: a.guardian_name,
+                gender: '', 
+                source: 'backend'
+              });
+            }
+          });
+
+          // merge
+          const localKeys = new Set(localRes.map(p => (p.mobilePrimary||'') + '__' + (p.name||'')));
+          const final = [...localRes];
+          
+          backendPatients.forEach(bp => {
+            const k = (bp.mobilePrimary||'') + '__' + (bp.name||'');
+            if (!localKeys.has(k)) {
+              final.push(bp);
+            }
+          });
+          
+          if (isActive) setPatientResults(final.slice(0, 15));
+        } else {
+           if (isActive) setPatientResults(localRes.slice(0, 10));
+        }
+      } catch (e) {
+         if (isActive) setPatientResults(localRes.slice(0, 10));
+      }
+    }, 400);
+
+    return () => {
+      isActive = false;
+      clearTimeout(timer);
+    };
   }, [patientQuery, patients]);
 
   const selectPatient = (p) => {

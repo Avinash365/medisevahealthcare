@@ -5,9 +5,19 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Models\Appointment;
+use App\Models\User;
+use App\Models\Onboarding;
+use App\Services\TwilioService;
 
 class PaymentController extends Controller
 {
+    protected $twilioService;
+
+    public function __construct(TwilioService $twilioService)
+    {
+        $this->twilioService = $twilioService;
+    }
+
     // create an order at Razorpay using server-side secret
     public function createOrder(Request $request)
     {
@@ -90,6 +100,64 @@ class PaymentController extends Controller
             $appt['payment_verified_at'] = now();
 
             $appointment = Appointment::create($appt);
+
+            // Send WhatsApp notification
+            try {
+                $docName = 'Doctor';
+                if (!empty($appointment->doctor_id)) {
+                    $docUser = Onboarding::find($appointment->doctor_id);
+                    if ($docUser) {
+                        $docName = $docUser->name;
+                    }
+                }
+
+                $clinicName = 'Mediseva Healthcare';
+                $clinicAddr = '';
+                if (!empty($appointment->clinic) && is_array($appointment->clinic)) {
+                    $clinicName = $appointment->clinic['clinic_name'] ?? ($appointment->clinic['name'] ?? 'Mediseva Clinic');
+                    $clinicAddr = $appointment->clinic['clinic_address'] ?? ($appointment->clinic['address'] ?? '');
+                }
+
+                $apptDate = $appointment->appointment_date;
+                if ($apptDate instanceof \Carbon\Carbon) {
+                    $dStr = $apptDate->format('d M Y');
+                } else {
+                    $dStr = date('d M Y', strtotime($apptDate)); 
+                }
+
+                $msg  = "Hello {$appointment->patient_name},\n";
+                $msg .= "Your appointment is confirmed (Paid)! ✅\n\n";
+                $msg .= "👨‍⚕️ Doctor: Dr. {$docName}\n";
+                $msg .= "📅 Date: {$dStr}\n";
+                if (!empty($appointment->time_slot)) {
+                    $msg .= "⏰ Time: {$appointment->time_slot}\n";
+                }
+                $msg .= "🏥 Clinic: {$clinicName}\n";
+                if ($clinicAddr) {
+                    $msg .= "📍 Address: {$clinicAddr}\n";
+                } elseif (!empty($appointment->city)) {
+                     $msg .= "📍 City: {$appointment->city}\n";
+                }
+                
+                // Fee & Payment Details
+                if (!empty($appointment->fee)) {
+                    $msg .= "💰 Fee: ₹{$appointment->fee}\n";
+                }
+                $msg .= "💳 Payment: Paid (via " . ($appointment->payment_mode ?? 'Online') . ")\n";
+                if ($appointment->payment_amount) {
+                    $msg .= "💵 Amount: ₹{$appointment->payment_amount}\n";
+                }
+                $msg .= "🧾 Ref: {$paymentId}\n";
+                
+                $msg .= "\nThank you for choosing Mediseva Healthcare! 🙏";
+
+                if ($appointment->mobile_primary) {
+                    $this->twilioService->sendWhatsAppMessage($appointment->mobile_primary, $msg);
+                }
+            } catch (\Exception $e) {
+                Log::error('WhatsApp Auto-Send Error (Payment): ' . $e->getMessage());
+            }
+
             return response()->json(['success' => true, 'data' => $appointment], 201);
         } catch (\Exception $e) {
             Log::error('Create appointment after payment failed: ' . $e->getMessage());
