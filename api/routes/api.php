@@ -38,6 +38,7 @@ use App\Http\Controllers\AuthController;
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware(\App\Http\Middleware\ApiTokenAuth::class);
+Route::get('/auth/me', [AuthController::class, 'me'])->middleware(\App\Http\Middleware\ApiTokenAuth::class);
 
 
 

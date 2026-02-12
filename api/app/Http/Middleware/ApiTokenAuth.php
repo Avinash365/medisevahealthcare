@@ -29,6 +29,11 @@ class ApiTokenAuth
             }
         }
 
+        // If no authenticated user was resolved, return 401
+        if (!auth()->user()) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
         return $next($request);
     }
 }

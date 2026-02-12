@@ -54,4 +54,14 @@ class AuthController extends Controller
         }
         return response()->json(['message' => 'Logged out']);
     }
+
+    public function me(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        return response()->json(['user' => $user]);
+    }
 }
