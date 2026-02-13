@@ -15,8 +15,10 @@ class TwilioService
         $sid = config('services.twilio.sid');
         $token = config('services.twilio.token');
         $this->from = config('services.twilio.whatsapp_from');
+        
+        $enabled = config('services.twilio.enabled');
 
-        if ($sid && $token) {
+        if ($sid && $token && $enabled) {
             $this->client = new Client($sid, $token);
         }
     }
@@ -70,7 +72,7 @@ class TwilioService
             ]);
         } catch (\Exception $e) {
             Log::error('Twilio WhatsApp Error: ' . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 }

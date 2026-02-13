@@ -45,3 +45,9 @@ Route::get('/auth/me', [AuthController::class, 'me'])->middleware(\App\Http\Midd
 // WhatsApp
 use App\Http\Controllers\WhatsAppController;
 Route::post('/whatsapp/send', [WhatsAppController::class, 'send']);
+
+use App\Http\Controllers\SettingsController;
+
+Route::get('/settings/sms', [SettingsController::class, 'getSmsSettings']);
+Route::post('/settings/sms', [SettingsController::class, 'updateSmsSettings']);
+

@@ -1,13 +1,12 @@
 
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-// import { toast } from "react-toastify";
 
-const TwilioConfig = () => {
+const MetaConfig = () => {
   const [settings, setSettings] = useState({
-    sid: "",
-    auth_token: "",
-    sender_id: "",
+    phone_number_id: "",
+    access_token: "",
+    business_account_id: "",
     enabled: false,
   });
 
@@ -15,12 +14,12 @@ const TwilioConfig = () => {
     try {
       const response = await fetch("/api/settings/sms");
       const data = await response.json();
-      if (data.twilio) {
+      if (data.meta) {
         setSettings({
-          sid: data.twilio.sid || "",
-          auth_token: data.twilio.auth_token || "",
-          sender_id: data.twilio.sender_id || "",
-          enabled: data.twilio.enabled || false,
+          phone_number_id: data.meta.phone_number_id || "",
+          access_token: data.meta.access_token || "",
+          business_account_id: data.meta.business_account_id || "",
+          enabled: data.meta.enabled || false,
         });
       }
     } catch (error) {
@@ -29,10 +28,7 @@ const TwilioConfig = () => {
   };
 
   useEffect(() => {
-    // We can fetch on mount, or when modal opens. 
-    // Since it's always mounted but hidden, we can fetch on mount.
-    // Ideally we should refetch when modal opens.
-    const modal = document.getElementById('twilio-config');
+    const modal = document.getElementById('meta-config');
     if (modal) {
         modal.addEventListener('shown.bs.modal', fetchSettings);
     }
@@ -60,50 +56,45 @@ const TwilioConfig = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ twilio: settings }),
+        body: JSON.stringify({ meta: settings }),
       });
 
       if (response.ok) {
-        // toast.success("Settings updated successfully");
         alert("Settings updated successfully");
-        // Close modal
-         const closeBtn = document.querySelector('#twilio-config .close');
+         const closeBtn = document.querySelector('#meta-config .close');
          if(closeBtn) closeBtn.click();
-         // Optionally refresh
          window.location.reload(); 
       } else {
-        // toast.error("Failed to update settings");
         console.error("Failed to update settings");
       }
     } catch (error) {
-    //   toast.error("Error updating settings");
       console.error("Error updating settings", error);
     }
   };
 
   return (
     <div>
-      {/* Twilio Config */}
-      <div className="modal fade" id="twilio-config">
+      {/* Meta Config */}
+      <div className="modal fade" id="meta-config">
         <div className="modal-dialog modal-dialog-centered custom-modal-two">
           <div className="modal-content">
             <div className="page-wrapper-new p-0">
               <div className="content">
                 <div className="modal-header border-0 custom-modal-header">
                   <div className="page-title">
-                    <h4>Twilio</h4>
+                    <h4>Meta WhatsApp</h4>
                   </div>
                   <div className="status-toggle modal-status d-flex justify-content-between align-items-center ms-auto me-2">
                     <input
                       type="checkbox"
-                      id="user14"
+                      id="meta_enabled"
                       className="check"
                       name="enabled"
                       checked={settings.enabled}
                       onChange={handleChange}
                     />
                     
-                    <label htmlFor="user14" className="checktoggle">
+                    <label htmlFor="meta_enabled" className="checktoggle">
                       {" "}
                     </label>
                   </div>
@@ -122,13 +113,13 @@ const TwilioConfig = () => {
                       <div className="col-lg-12">
                         <div className="mb-3">
                           <label className="form-label">
-                            API Key <span> *</span>
+                            Phone Number ID <span> *</span>
                           </label>
                           <input 
                             type="text" 
                             className="form-control"
-                            name="sid" 
-                            value={settings.sid}
+                            name="phone_number_id" 
+                            value={settings.phone_number_id}
                             onChange={handleChange}
                           />
                         </div>
@@ -136,13 +127,13 @@ const TwilioConfig = () => {
                       <div className="col-lg-12">
                         <div className="mb-3">
                           <label className="form-label">
-                            API Secret Key <span> *</span>
+                            Access Token <span> *</span>
                           </label>
                           <input 
                             type="text" 
                             className="form-control" 
-                            name="auth_token"
-                            value={settings.auth_token}
+                            name="access_token"
+                            value={settings.access_token}
                             onChange={handleChange}
                           />
                         </div>
@@ -151,13 +142,13 @@ const TwilioConfig = () => {
                         <div className="mb-0">
                           <label className="form-label">
                             {" "}
-                            Sender ID <span> *</span>
+                            Business Account ID <span> *</span>
                           </label>
                           <input 
                             type="text" 
                             className="form-control" 
-                            name="sender_id"
-                            value={settings.sender_id}
+                            name="business_account_id"
+                            value={settings.business_account_id}
                             onChange={handleChange}
                           />
                         </div>
@@ -182,9 +173,9 @@ const TwilioConfig = () => {
           </div>
         </div>
       </div>
-      {/* /Twilio Config */}
+      {/* /Meta Config */}
     </div>);
 
 };
 
-export default TwilioConfig;
+export default MetaConfig;

@@ -15,17 +15,25 @@ const WhatsAppModal = ({ show, onHide, recipientName, mobileNumber }) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phone: mobileNumber, message })
             });
-            const data = await res.json();
+            let data;
+            const text = await res.text();
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error("Server returned non-JSON:", text);
+                throw new Error("Server returned invalid response: " + text.substring(0, 50));
+            }
+
             if (data.success) {
                 alert('Message sent successfully!');
                 setMessage('');
                 onHide();
             } else {
-                alert('Failed: ' + data.message);
+                alert('Failed: ' + (data.message || 'Unknown error'));
             }
         } catch (error) {
             console.error(error);
-            alert('Error sending message');
+            alert('Error sending message: ' + error.message);
         } finally {
             setLoading(false);
         }

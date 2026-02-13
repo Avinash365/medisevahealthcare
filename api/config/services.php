@@ -39,6 +39,13 @@ return [
         'sid' => env('TWILIO_SID'),
         'token' => env('TWILIO_AUTH_TOKEN'),
         'whatsapp_from' => env('TWILIO_WHATSAPP_FROM'),
+        'enabled' => env('TWILIO_ENABLED', false),
     ],
 
+    'meta' => [
+        'phone_number_id' => env('META_WHATSAPP_PHONE_ID'),
+        'token' => env('META_WHATSAPP_TOKEN'),
+        'business_id' => env('META_WHATSAPP_BUSINESS_ID'),
+        'enabled' => env('META_WHATSAPP_ENABLED', false),
+    ],
 ];
