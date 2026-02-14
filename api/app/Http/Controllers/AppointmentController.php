@@ -8,14 +8,17 @@ use App\Models\Onboarding;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Services\TwilioService;
+use App\Services\MetaWhatsAppService;
 
 class AppointmentController extends Controller
 {
     protected $twilioService;
+    protected $metaService;
 
-    public function __construct(TwilioService $twilioService)
+    public function __construct(TwilioService $twilioService, MetaWhatsAppService $metaService)
     {
         $this->twilioService = $twilioService;
+        $this->metaService = $metaService;
     }
 
     /**
@@ -98,7 +101,11 @@ class AppointmentController extends Controller
                 
                 $msg .= "\nThank you for choosing Mediseva Healthcare! 🙏";
 
-                $this->twilioService->sendWhatsAppMessage($appointment->mobile_primary, $msg);
+                if (config('services.meta.enabled')) {
+                    $this->metaService->sendWhatsAppMessage($appointment->mobile_primary, $msg);
+                } elseif (config('services.twilio.enabled')) {
+                    $this->twilioService->sendWhatsAppMessage($appointment->mobile_primary, $msg);
+                }
             } catch (\Exception $e) {
                 Log::error('WhatsApp Auto-Send Error: ' . $e->getMessage());
             }

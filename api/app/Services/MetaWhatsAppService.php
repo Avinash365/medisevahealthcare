@@ -40,7 +40,7 @@ class MetaWhatsAppService
         $url = "https://graph.facebook.com/v17.0/{$this->phoneNumberId}/messages";
         
         // If message is simple "hello" or "test", send hello_world template
-        if (in_array(strtolower(trim($message)), ['hello', 'hi', 'hii', 'test', 'hello_world'])) {
+        if (in_array(strtolower(trim($message)), ['hello_world_template_check'])) {
              $payload = [
                 'messaging_product' => 'whatsapp',
                 'to' => $to,
